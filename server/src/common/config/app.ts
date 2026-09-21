@@ -1,0 +1,16 @@
+export const config = {
+  nodeEnv: process.env.NODE_ENV || 'development',
+  port: parseInt(process.env.PORT || '3000', 10),
+  databaseUrl: process.env.DATABASE_URL || 'mongodb://localhost:27017/leads-crm',
+  redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
+  jwtSecret: process.env.JWT_SECRET || 'dev-secret',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1d',
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  metaAppId: process.env.META_APP_ID || '',
+  metaAppSecret: process.env.META_APP_SECRET || '',
+  metaWebhookVerifyToken: process.env.META_WEBHOOK_VERIFY_TOKEN || '',
+  whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN || '',
+  whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
+  whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
+  fcmServerKey: process.env.FCM_SERVER_KEY || '',
+};
