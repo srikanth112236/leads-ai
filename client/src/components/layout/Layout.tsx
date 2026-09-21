@@ -31,6 +31,7 @@ const NAV: NavItem[] = [
   { to: '/integrations', label: 'Integrations', icon: <Plug size={17} />, roles: ['SUPER_ADMIN', 'COMPANY_ADMIN', 'COMPANY_MANAGER'] },
   { to: '/webhooks', label: 'Webhooks', icon: <Radio size={17} />, roles: MANAGERS },
   { to: '/audit-logs', label: 'Audit Logs', icon: <ScrollText size={17} />, roles: ['SUPER_ADMIN'] },
+  { to: '/meta-setup', label: 'Meta Setup', icon: <Plug size={17} />, roles: ['SUPER_ADMIN'] },
   { to: '/companies', label: 'Companies', icon: <Building2 size={17} />, roles: ['SUPER_ADMIN'] },
   { to: '/settings', label: 'Settings', icon: <Settings size={17} />, roles: ALL_ROLES },
 ];
@@ -43,6 +44,7 @@ const TITLES: Record<string, string> = {
   '/integrations': 'Integrations',
   '/webhooks': 'Webhook Events',
   '/audit-logs': 'Audit Logs',
+  '/meta-setup': 'Meta Setup',
   '/companies': 'Companies',
   '/settings': 'Settings',
 };

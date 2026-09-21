@@ -27,19 +27,22 @@ const IntegrationsPage: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: ['branches-list'] });
   };
 
-  const connect = usePost('/meta/oauth/start');
+  const [connecting, setConnecting] = useState(false);
   const disconnect = usePost('/meta/disconnect');
 
-  const startConnect = () => {
+  const startConnect = async () => {
     setError(null);
-    connect.mutate(undefined, {
-      onSuccess: (res: any) => {
-        const dialogUrl = res?.data?.data?.dialogUrl;
-        if (dialogUrl) window.location.href = dialogUrl;
-        else setError('No dialog URL returned');
-      },
-      onError: (err: any) => setError(err?.response?.data?.error || 'Connect failed'),
-    });
+    setConnecting(true);
+    try {
+      const res = await api.get('/meta/oauth/start');
+      const dialogUrl = res?.data?.data?.dialogUrl;
+      if (dialogUrl) window.location.href = dialogUrl;
+      else setError('No dialog URL returned');
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Connect failed');
+    } finally {
+      setConnecting(false);
+    }
   };
 
   const doDisconnect = () => {
@@ -68,7 +71,7 @@ const IntegrationsPage: React.FC = () => {
           {!connected ? (
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-500">Connect your company's Facebook Pages to receive Lead Ads.</p>
-              <Button onClick={startConnect} loading={connect.isPending}>Connect Meta</Button>
+              <Button onClick={startConnect} loading={connecting}>Connect Meta</Button>
             </div>
           ) : (
             <div className="flex items-center justify-between">

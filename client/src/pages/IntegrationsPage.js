@@ -25,20 +25,25 @@ const IntegrationsPage = () => {
         queryClient.invalidateQueries({ queryKey: [url] });
         queryClient.invalidateQueries({ queryKey: ['branches-list'] });
     };
-    const connect = usePost('/meta/oauth/start');
+    const [connecting, setConnecting] = useState(false);
     const disconnect = usePost('/meta/disconnect');
-    const startConnect = () => {
+    const startConnect = async () => {
         setError(null);
-        connect.mutate(undefined, {
-            onSuccess: (res) => {
-                const dialogUrl = res?.data?.data?.dialogUrl;
-                if (dialogUrl)
-                    window.location.href = dialogUrl;
-                else
-                    setError('No dialog URL returned');
-            },
-            onError: (err) => setError(err?.response?.data?.error || 'Connect failed'),
-        });
+        setConnecting(true);
+        try {
+            const res = await api.get('/meta/oauth/start');
+            const dialogUrl = res?.data?.data?.dialogUrl;
+            if (dialogUrl)
+                window.location.href = dialogUrl;
+            else
+                setError('No dialog URL returned');
+        }
+        catch (err) {
+            setError(err?.response?.data?.error || 'Connect failed');
+        }
+        finally {
+            setConnecting(false);
+        }
     };
     const doDisconnect = () => {
         if (!window.confirm('Disconnect Meta? Lead flow will stop.'))
@@ -56,7 +61,7 @@ const IntegrationsPage = () => {
         { title: 'WhatsApp', rows: payload.whatsapp || [] },
         { title: 'Website Forms', rows: payload.websiteForms || [] },
     ];
-    return (_jsxs("div", { children: [error && _jsx("p", { className: "text-red-500 text-sm mb-3", children: error }), !isSuper && (_jsx(Card, { title: "Meta Lead Ads", className: "mb-4", children: !connected ? (_jsxs("div", { className: "flex items-center justify-between", children: [_jsx("p", { className: "text-sm text-slate-500", children: "Connect your company's Facebook Pages to receive Lead Ads." }), _jsx(Button, { onClick: startConnect, loading: connect.isPending, children: "Connect Meta" })] })) : (_jsxs("div", { className: "flex items-center justify-between", children: [_jsxs("p", { className: "text-sm text-green-700 font-semibold", children: ["Connected", metaPages.length > 0 ? ` — ${metaPages.length} page(s)` : ''] }), _jsx(Button, { variant: "danger", onClick: doDisconnect, loading: disconnect.isPending, children: "Disconnect" })] })) })), !isSuper && unassigned.length > 0 && (_jsx(Card, { title: "Pages waiting for branch assignment", className: "mb-4", children: unassigned.map((p) => (_jsx(PageAssignRow, { page: p, branches: branches, branchId: assigning[p._id] || '', onSelect: (v) => setAssigning({ ...assigning, [p._id]: v }), onDone: refresh, onError: setError }, p._id))) })), isLoading ? (_jsx("p", { children: "Loading..." })) : (sections.map((section) => (_jsx(Card, { title: section.title, className: "mb-4", children: section.rows.length === 0 ? (_jsx("p", { className: "text-gray-500", children: "None configured" })) : (_jsxs("table", { className: "w-full", children: [_jsx("thead", { children: _jsxs("tr", { className: "border-b", children: [_jsx("th", { className: "text-left py-2", children: "ID" }), _jsx("th", { className: "text-left py-2", children: "Status" }), _jsx("th", { className: "text-left py-2", children: "Company" }), _jsx("th", { className: "text-left py-2", children: "Branch" })] }) }), _jsx("tbody", { children: section.rows.map((row) => (_jsxs("tr", { className: "border-b", children: [_jsx("td", { className: "py-2 font-mono text-xs", children: row._id }), _jsx("td", { className: "py-2", children: row.status }), _jsx("td", { className: "py-2 font-mono text-xs", children: row.companyId }), _jsx("td", { className: "py-2 font-mono text-xs", children: row.branchId || '—' })] }, row._id))) })] })) }, section.title))))] }));
+    return (_jsxs("div", { children: [error && _jsx("p", { className: "text-red-500 text-sm mb-3", children: error }), !isSuper && (_jsx(Card, { title: "Meta Lead Ads", className: "mb-4", children: !connected ? (_jsxs("div", { className: "flex items-center justify-between", children: [_jsx("p", { className: "text-sm text-slate-500", children: "Connect your company's Facebook Pages to receive Lead Ads." }), _jsx(Button, { onClick: startConnect, loading: connecting, children: "Connect Meta" })] })) : (_jsxs("div", { className: "flex items-center justify-between", children: [_jsxs("p", { className: "text-sm text-green-700 font-semibold", children: ["Connected", metaPages.length > 0 ? ` — ${metaPages.length} page(s)` : ''] }), _jsx(Button, { variant: "danger", onClick: doDisconnect, loading: disconnect.isPending, children: "Disconnect" })] })) })), !isSuper && unassigned.length > 0 && (_jsx(Card, { title: "Pages waiting for branch assignment", className: "mb-4", children: unassigned.map((p) => (_jsx(PageAssignRow, { page: p, branches: branches, branchId: assigning[p._id] || '', onSelect: (v) => setAssigning({ ...assigning, [p._id]: v }), onDone: refresh, onError: setError }, p._id))) })), isLoading ? (_jsx("p", { children: "Loading..." })) : (sections.map((section) => (_jsx(Card, { title: section.title, className: "mb-4", children: section.rows.length === 0 ? (_jsx("p", { className: "text-gray-500", children: "None configured" })) : (_jsxs("table", { className: "w-full", children: [_jsx("thead", { children: _jsxs("tr", { className: "border-b", children: [_jsx("th", { className: "text-left py-2", children: "ID" }), _jsx("th", { className: "text-left py-2", children: "Status" }), _jsx("th", { className: "text-left py-2", children: "Company" }), _jsx("th", { className: "text-left py-2", children: "Branch" })] }) }), _jsx("tbody", { children: section.rows.map((row) => (_jsxs("tr", { className: "border-b", children: [_jsx("td", { className: "py-2 font-mono text-xs", children: row._id }), _jsx("td", { className: "py-2", children: row.status }), _jsx("td", { className: "py-2 font-mono text-xs", children: row.companyId }), _jsx("td", { className: "py-2 font-mono text-xs", children: row.branchId || '—' })] }, row._id))) })] })) }, section.title))))] }));
 };
 const PageAssignRow = ({ page, branches, branchId, onSelect, onDone, onError }) => {
     const assign = usePut(`/meta/pages/${page._id}/assign`);

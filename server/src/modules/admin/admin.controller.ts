@@ -7,6 +7,7 @@ import { WhatsAppIntegration } from '../../common/models/WhatsAppIntegration';
 import { WebsiteLeadForm } from '../../common/models/WebsiteLeadForm';
 import { WebhookEvent } from '../../common/models/WebhookEvent';
 import { AuditLog } from '../../common/models/AuditLog';
+import { META_GRAPH_VERSION } from '../meta/meta.service';
 import { BaseController } from '../../common/controllers/BaseController';
 
 export class AdminController extends BaseController {
@@ -98,6 +99,64 @@ export class AdminController extends BaseController {
       res.json({ success: true, data: { meta, whatsapp, websiteForms } });
     } catch (error: any) {
       res.status(500).json({ error: error.message, code: 'FETCH_ERROR' });
+    }
+  }
+
+  static async getMetaStatus(_req: Request, res: Response): Promise<void> {
+    res.json({
+      success: true,
+      data: {
+        appIdSet: !!process.env.META_APP_ID,
+        appSecretSet: !!process.env.META_APP_SECRET,
+        verifyTokenSet: !!process.env.META_WEBHOOK_VERIFY_TOKEN,
+        tokenKeySet: !!process.env.META_TOKEN_KEY,
+        graphVersion: META_GRAPH_VERSION,
+        // Presence only — values are never returned.
+      },
+    });
+  }
+
+  static async exchangeMetaToken(req: Request, res: Response): Promise<void> {
+    try {
+      const { shortToken } = req.body as { shortToken?: string };
+      if (!shortToken) {
+        res.status(400).json({ error: 'shortToken is required', code: 'VALIDATION_ERROR' });
+        return;
+      }
+      const appId = process.env.META_APP_ID || '';
+      const appSecret = process.env.META_APP_SECRET || '';
+      if (!appId || !appSecret) {
+        res.status(500).json({ error: 'Meta app not configured on platform', code: 'OAUTH_NOT_CONFIGURED' });
+        return;
+      }
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 10000);
+      try {
+        const url =
+          `https://graph.facebook.com/${META_GRAPH_VERSION}/oauth/access_token` +
+          `?grant_type=fb_exchange_token&client_id=${encodeURIComponent(appId)}` +
+          `&client_secret=${encodeURIComponent(appSecret)}&fb_exchange_token=${encodeURIComponent(shortToken)}`;
+        const apiRes = await fetch(url, { signal: ctrl.signal });
+        const data = (await apiRes.json().catch(() => ({}))) as Record<string, unknown>;
+        if (!apiRes.ok || !data.access_token) {
+          const err = data.error as { message?: string; code?: number } | undefined;
+          res.status(400).json({ error: err?.message || 'Exchange rejected by Meta', code: 'EXCHANGE_FAILED' });
+          return;
+        }
+        // Returned ONCE for the operator to store in Render env. Never logged, never persisted.
+        res.json({
+          success: true,
+          data: {
+            access_token: data.access_token,
+            expires_in: data.expires_in,
+            token_type: data.token_type || 'bearer',
+          },
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message, code: 'EXCHANGE_ERROR' });
     }
   }
 }

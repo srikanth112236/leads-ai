@@ -11,6 +11,7 @@ import IntegrationsPage from './pages/IntegrationsPage';
 import IntegrationsConnectedPage from './pages/IntegrationsConnectedPage';
 import WebhooksPage from './pages/WebhooksPage';
 import AuditLogsPage from './pages/AuditLogsPage';
+import MetaSetupPage from './pages/MetaSetupPage';
 import SettingsPage from './pages/SettingsPage';
 import Layout from './components/layout/Layout';
 import RequireRole from './components/common/RequireRole';
@@ -34,6 +35,7 @@ const App: React.FC = () => {
         <Route path="integrations/connected" element={<RequireRole roles={INTEGRATION_ROLES}><IntegrationsConnectedPage /></RequireRole>} />
         <Route path="webhooks" element={<RequireRole roles={MANAGERS}><WebhooksPage /></RequireRole>} />
         <Route path="audit-logs" element={<RequireRole roles={['SUPER_ADMIN']}><AuditLogsPage /></RequireRole>} />
+        <Route path="meta-setup" element={<RequireRole roles={['SUPER_ADMIN']}><MetaSetupPage /></RequireRole>} />
         <Route path="companies" element={<RequireRole roles={['SUPER_ADMIN']}><CompaniesPage /></RequireRole>} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

@@ -12,6 +12,7 @@ const NAV = [
     { to: '/integrations', label: 'Integrations', icon: _jsx(Plug, { size: 17 }), roles: ['SUPER_ADMIN', 'COMPANY_ADMIN', 'COMPANY_MANAGER'] },
     { to: '/webhooks', label: 'Webhooks', icon: _jsx(Radio, { size: 17 }), roles: MANAGERS },
     { to: '/audit-logs', label: 'Audit Logs', icon: _jsx(ScrollText, { size: 17 }), roles: ['SUPER_ADMIN'] },
+    { to: '/meta-setup', label: 'Meta Setup', icon: _jsx(Plug, { size: 17 }), roles: ['SUPER_ADMIN'] },
     { to: '/companies', label: 'Companies', icon: _jsx(Building2, { size: 17 }), roles: ['SUPER_ADMIN'] },
     { to: '/settings', label: 'Settings', icon: _jsx(Settings, { size: 17 }), roles: ALL_ROLES },
 ];
@@ -23,6 +24,7 @@ const TITLES = {
     '/integrations': 'Integrations',
     '/webhooks': 'Webhook Events',
     '/audit-logs': 'Audit Logs',
+    '/meta-setup': 'Meta Setup',
     '/companies': 'Companies',
     '/settings': 'Settings',
 };

@@ -22,9 +22,9 @@ services:
       - key: JWT_EXPIRES_IN
         value: 1d
       - key: FRONTEND_URL
-        value: PASTE_FRONTEND_URL_HERE
+        value: https://leads-ai-1.onrender.com
       - key: BACKEND_URL
-        value: PASTE_BACKEND_URL_HERE
+        value: https://leads-ai-d4cx.onrender.com
       - key: META_APP_ID
         value: ''
       - key: META_APP_SECRET
@@ -55,4 +55,4 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        value: PASTE_BACKEND_URL_HERE/api
+        value: https://leads-ai-d4cx.onrender.com/api

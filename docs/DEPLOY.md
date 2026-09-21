@@ -41,7 +41,15 @@ It creates `leads-crm-api` (Node) + `leads-crm-web` (static). Then set env vars:
 - NOTE: Vite bakes this in at build time — after changing it, use
   Dashboard → Manual Deploy → Deploy latest commit.
 
-## 4. Give me the two URLs
+## 4. Live URLs (configured)
+
+- Backend: `https://leads-ai-d4cx.onrender.com`
+- Frontend: `https://leads-ai-1.onrender.com` (login at `/login`)
+- `render.yaml` already carries these values — but Render only picks up
+  `render.yaml` changes via Blueprint sync; env values already set by hand in
+  the dashboard win. Keep both in sync.
+
+## 5. First login on production
 
 Paste the Render URLs for backend + frontend. I will then:
 1. Verify CORS/health (`GET <backend>/health`).
