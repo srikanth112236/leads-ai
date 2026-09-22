@@ -24,7 +24,13 @@ export const AuthProvider = ({ children }) => {
     }, [token]);
     const login = async (email, password) => {
         const res = await axios.post(`${API_BASE}/auth/login`, { email, password });
-        const { accessToken, user: loggedInUser } = res.data.data;
+        // Accept both current ({data:{accessToken,user}}) and legacy ({data:{user},accessToken}) shapes.
+        const payload = res.data?.data ?? {};
+        const accessToken = payload.accessToken ?? res.data?.accessToken;
+        const loggedInUser = payload.user;
+        if (!accessToken || !loggedInUser) {
+            throw new Error(res.data?.error || 'Unexpected login response from server');
+        }
         setToken(accessToken);
         localStorage.setItem('token', accessToken);
         setUser(loggedInUser);
@@ -32,7 +38,12 @@ export const AuthProvider = ({ children }) => {
     };
     const register = async (data) => {
         const res = await axios.post(`${API_BASE}/auth/register`, data);
-        const { accessToken, user: newUser } = res.data.data;
+        const payload = res.data?.data ?? {};
+        const accessToken = payload.accessToken ?? res.data?.accessToken;
+        const newUser = payload.user;
+        if (!accessToken || !newUser) {
+            throw new Error(res.data?.error || 'Unexpected register response from server');
+        }
         setToken(accessToken);
         localStorage.setItem('token', accessToken);
         setUser(newUser);
