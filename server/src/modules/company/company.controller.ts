@@ -6,6 +6,7 @@ import { hashPassword } from '../../common/security/hash';
 import { Role } from '../../common/types';
 import { MetaIntegration } from '../../common/models/MetaIntegration';
 import { MetaPage } from '../../common/models/MetaPage';
+import { MetaLeadForm } from '../../common/models/MetaLeadForm';
 import { WhatsAppIntegration } from '../../common/models/WhatsAppIntegration';
 import { WebsiteLeadForm } from '../../common/models/WebsiteLeadForm';
 import { AuthRequest } from '../../common/middleware/auth';
@@ -146,13 +147,14 @@ export class CompanyController extends BaseController {
         res.status(403).json({ error: 'Access denied', code: 'FORBIDDEN' });
         return;
       }
-      const [meta, metaPages, whatsapp, websiteForms] = await Promise.all([
+      const [meta, metaPages, metaForms, whatsapp, websiteForms] = await Promise.all([
         MetaIntegration.find({ companyId }).lean(),
         MetaPage.find({ companyId }).lean(),
+        MetaLeadForm.find({ companyId }).lean(),
         WhatsAppIntegration.find({ companyId }).lean(),
         WebsiteLeadForm.find({ companyId }).lean(),
       ]);
-      res.json({ success: true, data: { meta, metaPages, whatsapp, websiteForms } });
+      res.json({ success: true, data: { meta, metaPages, metaForms, whatsapp, websiteForms } });
     } catch (error: any) {
       res.status(500).json({ error: error.message, code: 'FETCH_ERROR' });
     }

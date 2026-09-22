@@ -72,4 +72,27 @@ describe('meta setup helpers (super-only)', () => {
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('EXCHANGE_FAILED');
   });
+
+  test('health reports platform + customer + webhook rollups', async () => {
+    const res = await request(app).get('/api/admin/meta/health').set('Authorization', `Bearer ${tokenSuper}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.platform.oauthCallbackUrl).toContain('/api/meta/oauth/callback');
+    expect(res.body.data.platform.webhookUrl).toContain('/api/webhooks/meta');
+    expect(res.body.data.customers).toBeDefined();
+    expect(res.body.data.webhooks24h).toBeDefined();
+  });
+
+  test('companies health lists per-company status', async () => {
+    const res = await request(app).get('/api/admin/meta/companies').set('Authorization', `Bearer ${tokenSuper}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    const row = res.body.data.find((r: any) => r.name === 'Setup Co');
+    expect(row).toBeDefined();
+    expect(row.status).toBeDefined();
+  });
+
+  test('health endpoints are super-only', async () => {
+    expect((await request(app).get('/api/admin/meta/health').set('Authorization', `Bearer ${tokenAdmin}`)).status).toBe(403);
+    expect((await request(app).get('/api/admin/meta/companies').set('Authorization', `Bearer ${tokenAdmin}`)).status).toBe(403);
+  });
 });

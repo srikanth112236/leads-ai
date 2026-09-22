@@ -35,7 +35,7 @@ export function authenticateToken(req: AuthRequest, res: Response, next: NextFun
     };
     next();
   } catch (error) {
-    logger.warn('Invalid token attempt', { ip: req.ip });
+    logger.warn('Invalid token attempt', { ip: req.ip, path: req.path });
     res.status(403).json({ error: 'Invalid or expired token', code: 'INVALID_TOKEN' });
   }
 }

@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import { Lead } from '../../common/models/Lead';
 import { LeadSource } from '../../common/models/LeadSource';
+import { TrackerEvent } from '../../common/models/TrackerEvent';
+import { Conversation } from '../../common/models/Conversation';
+import { Message } from '../../common/models/Message';
 import { LeadNote } from '../../common/models/LeadNote';
 import { LeadActivity } from '../../common/models/LeadActivity';
 import { logger } from '../../common/utils/logger';
@@ -114,8 +117,22 @@ export class LeadController extends BaseController {
     }
   }
 
-  static async getTrackerEvents(_req: Request, res: Response): Promise<void> {
-    res.json({ success: true, data: [] });
+  static async getTrackerEvents(req: Request, res: Response): Promise<void> {
+    try {
+      const lead = await loadScopedLead(req, res);
+      if (!lead) return;
+      const [tracker, activity] = await Promise.all([
+        TrackerEvent.find({ leadId: lead._id }).sort({ createdAt: 1 }).lean(),
+        LeadActivity.find({ leadId: lead._id }).sort({ createdAt: 1 }).lean(),
+      ]);
+      const timeline = [
+        ...tracker.map((t: any) => ({ kind: 'tracker', at: t.createdAt, ...t })),
+        ...activity.map((a: any) => ({ kind: 'activity', at: a.createdAt, ...a })),
+      ].sort((x: any, y: any) => new Date(x.at).getTime() - new Date(y.at).getTime());
+      res.json({ success: true, data: timeline });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message, code: 'FETCH_ERROR' });
+    }
   }
 
   static async assign(req: Request, res: Response): Promise<void> {
@@ -137,8 +154,21 @@ export class LeadController extends BaseController {
     }
   }
 
-  static async getConversations(_req: Request, res: Response): Promise<void> {
-    res.json({ success: true, data: [] });
+  static async getConversations(req: Request, res: Response): Promise<void> {
+    try {
+      const lead = await loadScopedLead(req, res);
+      if (!lead) return;
+      const conversations = await Conversation.find({ leadId: lead._id }).sort({ updatedAt: -1 }).lean();
+      const withMessages = await Promise.all(
+        conversations.map(async (c: any) => ({
+          ...c,
+          messages: await Message.find({ conversationId: c._id }).sort({ createdAt: 1 }).lean(),
+        })),
+      );
+      res.json({ success: true, data: withMessages });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message, code: 'FETCH_ERROR' });
+    }
   }
 
   static async export(_req: Request, res: Response): Promise<void> {

@@ -30,9 +30,20 @@ const DashboardPage: React.FC = () => {
   const users = (usersData as any)?.data || [];
   const failedTotal = (failedData as any)?.pagination?.total ?? 0;
 
+  const { data: accountsData } = useQuery({
+    queryKey: ['adaccounts-alert'], queryFn: () => api.get('/meta/adaccounts').then((r) => r.data),
+    enabled: isManager, retry: false,
+  });
+  const blockedAccounts = ((accountsData as any)?.data || []).filter((a: any) => [2, 3].includes(a.accountStatus));
+
   return (
     <div>
       <p className="text-gray-500 mb-4">Welcome{user ? `, ${user.firstName}` : ''}</p>
+      {blockedAccounts.length > 0 && (
+        <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-300 text-amber-800 rounded-xl text-sm font-semibold">
+          ⚠ {blockedAccounts.length} ad account(s) blocked ({blockedAccounts.map((a: any) => a.name || a.metaAdAccountId).join(', ')}) — leads have stopped flowing. Check Ad Accounts.
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card title="Total Leads">
           <p className="text-3xl font-extrabold text-blue-600">{leads.length}</p>

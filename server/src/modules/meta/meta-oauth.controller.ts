@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { MetaIntegration } from '../../common/models/MetaIntegration';
+import { MetaAdAccount } from '../../common/models/MetaAdAccount';
+import { MetaLeadForm } from '../../common/models/MetaLeadForm';
 import { MetaPage } from '../../common/models/MetaPage';
 import { Branch } from '../../common/models/Branch';
 import { AuthRequest } from '../../common/middleware/auth';
@@ -169,7 +171,22 @@ export class MetaOAuthController {
         { $set: { status: 'inactive' }, $unset: { accessToken: '', tokenExpiresAt: '' } },
       );
       await MetaPage.updateMany({ companyId }, { status: 'inactive' });
-      await recordAudit({ actorId: user?.userId, action: 'META_DISCONNECTED', companyId });
+      if ((req.body as any)?.purge === true) {
+        const { MetaLeadForm } = await import('../../common/models/MetaLeadForm');
+        const [pages, forms, integrations] = await Promise.all([
+          MetaPage.deleteMany({ companyId }),
+          MetaLeadForm.deleteMany({ companyId }),
+          MetaIntegration.deleteMany({ companyId }),
+        ]);
+        await recordAudit({
+          actorId: user?.userId,
+          action: 'META_PURGED',
+          companyId,
+          metadata: { pages: pages.deletedCount, forms: forms.deletedCount, integrations: integrations.deletedCount },
+        });
+      } else {
+        await recordAudit({ actorId: user?.userId, action: 'META_DISCONNECTED', companyId });
+      }
       res.json({ success: true, message: 'Meta disconnected' });
     } catch (error: any) {
       res.status(500).json({ error: error.message, code: 'DISCONNECT_ERROR' });
@@ -221,8 +238,103 @@ export class MetaOAuthController {
     }
   }
 
-  static async assignPage(req: Request, res: Response): Promise<void> {
+  static async listAdAccounts(req: Request, res: Response): Promise<void> {    try {
+      const user = (req as AuthRequest).user;
+      const companyId = user?.isSuperAdmin
+        ? ((req.query.companyId as string) || undefined)
+        : user?.companyId;
+      const filter: Record<string, unknown> = {};
+      if (companyId) filter.companyId = companyId;
+      const accounts = await MetaAdAccount.find(filter).sort({ updatedAt: -1 }).lean();
+      res.json({ success: true, data: accounts });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message, code: 'FETCH_ERROR' });
+    }
+  }
+
+  static async syncAdAccounts(req: Request, res: Response): Promise<void> {
     try {
+      const user = (req as AuthRequest).user;
+      const companyId = user?.isSuperAdmin ? (req.body.companyId as string) : user?.companyId;
+      if (!companyId) {
+        res.status(400).json({ error: 'companyId is required', code: 'VALIDATION_ERROR' });
+        return;
+      }
+      const { MetaService } = await import('./meta.service');
+      const result = await MetaService.syncAdAccounts(companyId);
+      await recordAudit({ actorId: user?.userId, action: 'META_ADACCOUNTS_SYNCED', companyId, metadata: result as any });
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message, code: 'SYNC_FAILED' });
+    }
+  }
+
+    static async listPages(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as AuthRequest).user;
+      const companyId = user?.isSuperAdmin
+        ? ((req.query.companyId as string) || undefined)
+        : user?.companyId;
+      const filter: Record<string, unknown> = {};
+      if (companyId) filter.companyId = companyId;
+      const { MetaPage } = await import('../../common/models/MetaPage');
+      res.json({ success: true, data: await MetaPage.find(filter).sort({ updatedAt: -1 }).lean() });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message, code: 'FETCH_ERROR' });
+    }
+  }
+
+  static async listForms(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as AuthRequest).user;
+      const companyId = user?.isSuperAdmin
+        ? ((req.query.companyId as string) || undefined)
+        : user?.companyId;
+      const filter: Record<string, unknown> = {};
+      if (companyId) filter.companyId = companyId;
+      res.json({ success: true, data: await MetaLeadForm.find(filter).sort({ updatedAt: -1 }).lean() });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message, code: 'FETCH_ERROR' });
+    }
+  }
+
+  static async assignForm(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as AuthRequest).user;
+      const form = await MetaLeadForm.findById(req.params.id);
+      if (!form) {
+        res.status(404).json({ error: 'Form mapping not found', code: 'NOT_FOUND' });
+        return;
+      }
+      if (!user?.isSuperAdmin && form.companyId.toString() !== user?.companyId) {
+        res.status(403).json({ error: 'Access denied', code: 'FORBIDDEN' });
+        return;
+      }
+      const { branchId } = req.body;
+      if (branchId) {
+        const branch = await Branch.findById(branchId);
+        if (!branch || branch.companyId.toString() !== form.companyId.toString()) {
+          res.status(400).json({ error: 'Branch does not belong to this company', code: 'VALIDATION_ERROR' });
+          return;
+        }
+      }
+      form.branchId = branchId || undefined;
+      form.status = branchId ? 'active' : 'inactive';
+      await form.save();
+      await recordAudit({
+        actorId: user?.userId,
+        action: 'META_FORM_ASSIGNED',
+        companyId: form.companyId.toString(),
+        branchId: branchId || undefined,
+        metadata: { metaFormId: form.metaFormId },
+      });
+      res.json({ success: true, data: form });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message, code: 'ASSIGN_ERROR' });
+    }
+  }
+
+  static async assignPage(req: Request, res: Response): Promise<void> {    try {
       const user = (req as AuthRequest).user;
       const page = await MetaPage.findById(req.params.id);
       if (!page) {

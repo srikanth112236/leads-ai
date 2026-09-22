@@ -1,6 +1,6 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Building2, GitBranch, Plug, Radio, ScrollText, Settings, LogOut, } from 'lucide-react';
+import { LayoutDashboard, Users, Building2, GitBranch, Plug, BarChart3, Radio, ScrollText, Settings, LogOut, } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 const ALL_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'COMPANY_MANAGER', 'BRANCH_MANAGER', 'SALES_AGENT'];
 const MANAGERS = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'COMPANY_MANAGER', 'BRANCH_MANAGER'];
@@ -10,6 +10,7 @@ const NAV = [
     { to: '/branches', label: 'Branches', icon: _jsx(GitBranch, { size: 17 }), roles: MANAGERS },
     { to: '/users', label: 'Users', icon: _jsx(Users, { size: 17 }), roles: MANAGERS },
     { to: '/integrations', label: 'Integrations', icon: _jsx(Plug, { size: 17 }), roles: ['SUPER_ADMIN', 'COMPANY_ADMIN', 'COMPANY_MANAGER'] },
+    { to: '/ad-accounts', label: 'Ad Accounts', icon: _jsx(BarChart3, { size: 17 }), roles: ['SUPER_ADMIN', 'COMPANY_ADMIN', 'COMPANY_MANAGER'] },
     { to: '/webhooks', label: 'Webhooks', icon: _jsx(Radio, { size: 17 }), roles: MANAGERS },
     { to: '/audit-logs', label: 'Audit Logs', icon: _jsx(ScrollText, { size: 17 }), roles: ['SUPER_ADMIN'] },
     { to: '/meta-setup', label: 'Meta Setup', icon: _jsx(Plug, { size: 17 }), roles: ['SUPER_ADMIN'] },
@@ -22,6 +23,7 @@ const TITLES = {
     '/branches': 'Branches',
     '/users': 'Users',
     '/integrations': 'Integrations',
+    '/ad-accounts': 'Ad Accounts',
     '/webhooks': 'Webhook Events',
     '/audit-logs': 'Audit Logs',
     '/meta-setup': 'Meta Setup',

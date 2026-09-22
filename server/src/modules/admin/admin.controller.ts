@@ -3,10 +3,14 @@ import { Company } from '../../common/models/Company';
 import { Branch } from '../../common/models/Branch';
 import { Lead } from '../../common/models/Lead';
 import { MetaIntegration } from '../../common/models/MetaIntegration';
+import { MetaPage } from '../../common/models/MetaPage';
+import { MetaLeadForm } from '../../common/models/MetaLeadForm';
 import { WhatsAppIntegration } from '../../common/models/WhatsAppIntegration';
 import { WebsiteLeadForm } from '../../common/models/WebsiteLeadForm';
 import { WebhookEvent } from '../../common/models/WebhookEvent';
 import { AuditLog } from '../../common/models/AuditLog';
+import { RetentionService } from './retention.service';
+import { recordAudit } from '../../common/services/audit';
 import { META_GRAPH_VERSION } from '../meta/meta.service';
 import { BaseController } from '../../common/controllers/BaseController';
 
@@ -116,8 +120,7 @@ export class AdminController extends BaseController {
     });
   }
 
-  static async exchangeMetaToken(req: Request, res: Response): Promise<void> {
-    try {
+  static async exchangeMetaToken(req: Request, res: Response): Promise<void> {    try {
       const { shortToken } = req.body as { shortToken?: string };
       if (!shortToken) {
         res.status(400).json({ error: 'shortToken is required', code: 'VALIDATION_ERROR' });
@@ -157,6 +160,117 @@ export class AdminController extends BaseController {
       }
     } catch (error: any) {
       res.status(500).json({ error: error.message, code: 'EXCHANGE_ERROR' });
+    }
+  }
+
+  static async runRetention(req: Request, res: Response): Promise<void> {
+    try {
+      const days = Math.max(1, parseInt((req.body?.days as string) || '90'));
+      const result = await RetentionService.run(days);
+      await recordAudit({
+        actorId: (req as any).user?.userId,
+        action: 'RETENTION_RUN',
+        metadata: { days, ...result },
+      });
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message, code: 'RETENTION_ERROR' });
+    }
+  }
+
+  static async getMetaHealth(_req: Request, res: Response): Promise<void> {
+    try {
+      const backend = (process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, '');
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const [
+        integrations,
+        todayTotal,
+        todayProcessed,
+        todayFailed,
+      ] = await Promise.all([
+        MetaIntegration.find({}).select('companyId status tokenExpiresAt updatedAt').lean(),
+        WebhookEvent.countDocuments({ provider: { $in: ['meta', 'whatsapp'] }, receivedAt: { $gte: dayAgo } }),
+        WebhookEvent.countDocuments({ provider: { $in: ['meta', 'whatsapp'] }, receivedAt: { $gte: dayAgo }, status: 'processed' }),
+        WebhookEvent.countDocuments({ provider: { $in: ['meta', 'whatsapp'] }, receivedAt: { $gte: dayAgo }, status: 'failed' }),
+      ]);
+      const connectedCompanies = new Set(integrations.map((i: any) => i.companyId.toString())).size;
+      res.json({
+        success: true,
+        data: {
+          platform: {
+            appConfigured: !!process.env.META_APP_ID && !!process.env.META_APP_SECRET,
+            oauthCallbackUrl: `${backend}/api/meta/oauth/callback`,
+            webhookUrl: `${backend}/api/webhooks/meta`,
+            graphVersion: META_GRAPH_VERSION,
+          },
+          customers: {
+            connectedCompanies,
+            active: integrations.filter((i: any) => i.status === 'active').length,
+            failed: integrations.filter((i: any) => ['expired', 'failed'].includes(i.status)).length,
+          },
+          webhooks24h: { total: todayTotal, processed: todayProcessed, failed: todayFailed },
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message, code: 'HEALTH_ERROR' });
+    }
+  }
+
+  static async getMetaCompanies(_req: Request, res: Response): Promise<void> {
+    try {
+      const companies = await Company.find({}).select('name status').sort({ name: 1 }).lean();
+      const rows = await Promise.all(
+        companies.map(async (c: any) => {
+          const companyId = c._id.toString();
+          const [integration, pages, forms, lastError, lastLead] = await Promise.all([
+            MetaIntegration.findOne({ companyId }).select('status tokenExpiresAt updatedAt').lean(),
+            MetaPage.countDocuments({ companyId }),
+            MetaLeadForm.countDocuments({ companyId }),
+            WebhookEvent.findOne({ companyId, provider: { $in: ['meta', 'whatsapp'] }, status: 'failed' })
+              .sort({ receivedAt: -1 })
+              .select('error receivedAt provider')
+              .lean(),
+            Lead.findOne({ companyId, source: { $in: ['META_LEAD_ADS', 'WHATSAPP'] } })
+              .sort({ createdAt: -1 })
+              .select('createdAt source')
+              .lean(),
+          ]);
+          return {
+            companyId,
+            name: c.name,
+            status: (integration as any)?.status || 'not_connected',
+            pages,
+            forms,
+            lastError: lastError ? { message: (lastError as any).error, at: (lastError as any).receivedAt } : null,
+            lastLeadAt: (lastLead as any)?.createdAt || null,
+          };
+        }),
+      );
+      res.json({ success: true, data: rows });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message, code: 'FETCH_ERROR' });
+    }
+  }
+
+  static async testMetaPlatform(_req: Request, res: Response): Promise<void> {
+    // Self-test: proves our own webhook endpoint answers the Meta handshake.
+    // (It cannot prove Meta can reach us — that needs the Dashboard Verify button.)
+    try {
+      const backend = (process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, '');
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 10000);
+      try {
+        const apiRes = await fetch(
+          `${backend}/api/webhooks/meta?hub.mode=subscribe&hub.verify_token=__selftest__&hub.challenge=ping`,
+          { signal: ctrl.signal },
+        );
+        const reachable = apiRes.status === 403; // 403 = route live, token rejected as designed
+        res.json({ success: true, data: { endpointReachable: reachable, appConfigured: !!process.env.META_APP_ID } });
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (error: any) {
+      res.json({ success: true, data: { endpointReachable: false, error: error.message } });
     }
   }
 }

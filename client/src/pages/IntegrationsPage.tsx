@@ -55,8 +55,10 @@ const IntegrationsPage: React.FC = () => {
 
   const meta = payload.meta || [];
   const metaPages = payload.metaPages || [];
+  const metaForms = payload.metaForms || [];
   const connected = meta.some((m: any) => m.status === 'active');
   const unassigned = metaPages.filter((p: any) => !p.branchId);
+  const unassignedForms = metaForms.filter((f: any) => !f.branchId);
 
   const sections: Array<{ title: string; rows: any[] }> = [
     { title: 'WhatsApp', rows: payload.whatsapp || [] },
@@ -90,6 +92,22 @@ const IntegrationsPage: React.FC = () => {
               branches={branches}
               branchId={assigning[p._id] || ''}
               onSelect={(v: string) => setAssigning({ ...assigning, [p._id]: v })}
+              onDone={refresh}
+              onError={setError}
+            />
+          ))}
+        </Card>
+      )}
+      {!isSuper && unassignedForms.length > 0 && (
+        <Card title="Lead forms waiting for branch assignment" className="mb-4">
+          <p className="text-xs text-slate-500 mb-2">Form routing wins over Page routing. Unassigned forms fall back to their Page's branch.</p>
+          {unassignedForms.map((f: any) => (
+            <FormAssignRow
+              key={f._id}
+              form={f}
+              branches={branches}
+              branchId={assigning[f._id] || ''}
+              onSelect={(v: string) => setAssigning({ ...assigning, [f._id]: v })}
               onDone={refresh}
               onError={setError}
             />
@@ -140,6 +158,32 @@ const PageAssignRow: React.FC<{
   return (
     <div className="flex items-center gap-3 py-2 border-b last:border-0">
       <span className="text-sm font-semibold flex-1">{page.name || page.metaPageId}</span>
+      <select value={branchId} onChange={(e) => onSelect(e.target.value)} className="px-2 py-1.5 border rounded-lg text-sm">
+        <option value="">Select branch…</option>
+        {branches.map((b: any) => <option key={b._id} value={b._id}>{b.name}</option>)}
+      </select>
+      <Button
+        variant="secondary"
+        loading={assign.isPending}
+        onClick={() => {
+          if (!branchId) return;
+          assign.mutate({ branchId }, { onSuccess: onDone, onError: (err: any) => onError(err?.response?.data?.error || 'Assign failed') });
+        }}
+      >
+        Assign
+      </Button>
+    </div>
+  );
+};
+
+const FormAssignRow: React.FC<{
+  form: any; branches: any[]; branchId: string;
+  onSelect: (v: string) => void; onDone: () => void; onError: (m: string) => void;
+}> = ({ form, branches, branchId, onSelect, onDone, onError }) => {
+  const assign = usePut(`/meta/forms/${form._id}/assign`);
+  return (
+    <div className="flex items-center gap-3 py-2 border-b last:border-0">
+      <span className="text-sm font-semibold flex-1">{form.name || form.metaFormId}</span>
       <select value={branchId} onChange={(e) => onSelect(e.target.value)} className="px-2 py-1.5 border rounded-lg text-sm">
         <option value="">Select branch…</option>
         {branches.map((b: any) => <option key={b._id} value={b._id}>{b.name}</option>)}

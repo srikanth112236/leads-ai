@@ -4,10 +4,12 @@ import { useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import LeadsPage from './pages/LeadsPage';
+import LeadDetailPage from './pages/LeadDetailPage';
 import CompaniesPage from './pages/CompaniesPage';
 import BranchesPage from './pages/BranchesPage';
 import UsersPage from './pages/UsersPage';
 import IntegrationsPage from './pages/IntegrationsPage';
+import AdAccountsPage from './pages/AdAccountsPage';
 import IntegrationsConnectedPage from './pages/IntegrationsConnectedPage';
 import WebhooksPage from './pages/WebhooksPage';
 import AuditLogsPage from './pages/AuditLogsPage';
@@ -29,9 +31,11 @@ const App: React.FC = () => {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="leads" element={<LeadsPage />} />
+        <Route path="leads/:id" element={<LeadDetailPage />} />
         <Route path="branches" element={<RequireRole roles={MANAGERS}><BranchesPage /></RequireRole>} />
         <Route path="users" element={<RequireRole roles={MANAGERS}><UsersPage /></RequireRole>} />
         <Route path="integrations" element={<RequireRole roles={INTEGRATION_ROLES}><IntegrationsPage /></RequireRole>} />
+        <Route path="ad-accounts" element={<RequireRole roles={INTEGRATION_ROLES}><AdAccountsPage /></RequireRole>} />
         <Route path="integrations/connected" element={<RequireRole roles={INTEGRATION_ROLES}><IntegrationsConnectedPage /></RequireRole>} />
         <Route path="webhooks" element={<RequireRole roles={MANAGERS}><WebhooksPage /></RequireRole>} />
         <Route path="audit-logs" element={<RequireRole roles={['SUPER_ADMIN']}><AuditLogsPage /></RequireRole>} />

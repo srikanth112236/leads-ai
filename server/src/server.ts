@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { app } from './app';
 import { connectDB } from './common/config/database';
 import { startQueueWorkers } from './modules/queue/queue.config';

@@ -2,6 +2,7 @@ import React from 'react';
 import Card from '../components/common/Card';
 import { useGet } from '../hooks/useApi';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
 
 function nameMap(rows: any[], label: (r: any) => string): Record<string, string> {
@@ -47,7 +48,7 @@ const LeadsPage: React.FC = () => {
             <tbody>
               {leads.map((lead: any) => (
                 <tr key={lead._id} className="border-b">
-                  <td className="py-2">{lead.name}</td>
+                  <td className="py-2"><Link to={`/leads/${lead._id}`} className="text-blue-600 hover:underline font-semibold">{lead.name}</Link></td>
                   <td className="py-2">{lead.source}</td>
                   <td className="py-2">{lead.status}</td>
                   <td className="py-2">{lead.branchId ? branchesById[lead.branchId] || lead.branchId : '—'}</td>

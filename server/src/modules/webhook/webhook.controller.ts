@@ -17,7 +17,7 @@ export class WebhookController extends BaseController {
       const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN || '';
 
       if (mode === 'subscribe' && token === verifyToken && challenge) {
-        res.status(200).send(challenge);
+        res.status(200).type('text/plain').send(challenge);
       } else {
         res.status(403).json({ error: 'Verification failed', code: 'WEBHOOK_VERIFY_FAILED' });
       }

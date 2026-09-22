@@ -29,6 +29,36 @@ router.put(
   requireRole(Role.SUPER_ADMIN, Role.COMPANY_ADMIN, Role.COMPANY_MANAGER),
   MetaOAuthController.assignPage,
 );
+router.get(
+  '/pages',
+  authenticateToken,
+  requireRole(Role.SUPER_ADMIN, Role.COMPANY_ADMIN, Role.COMPANY_MANAGER),
+  MetaOAuthController.listPages,
+);
+router.get(
+  '/forms',
+  authenticateToken,
+  requireRole(Role.SUPER_ADMIN, Role.COMPANY_ADMIN, Role.COMPANY_MANAGER),
+  MetaOAuthController.listForms,
+);
+router.put(
+  '/forms/:id/assign',
+  authenticateToken,
+  requireRole(Role.SUPER_ADMIN, Role.COMPANY_ADMIN, Role.COMPANY_MANAGER),
+  MetaOAuthController.assignForm,
+);
+router.get(
+  '/adaccounts',
+  authenticateToken,
+  requireRole(Role.SUPER_ADMIN, Role.COMPANY_ADMIN, Role.COMPANY_MANAGER),
+  MetaOAuthController.listAdAccounts,
+);
+router.post(
+  '/adaccounts/sync',
+  authenticateToken,
+  requireRole(Role.SUPER_ADMIN, Role.COMPANY_ADMIN),
+  MetaOAuthController.syncAdAccounts,
+);
 router.post(
   '/refresh',
   authenticateToken,
