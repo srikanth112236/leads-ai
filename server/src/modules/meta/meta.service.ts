@@ -196,17 +196,36 @@ export class MetaService {
     if (!integration || !accessToken) {
       throw new Error('no active Meta connection for this company');
     }
-    const fields = 'id,name,account_status,amount_spent,currency,timezone_name,business_name,business{id,name}';
-    const url = `https://graph.facebook.com/${META_GRAPH_VERSION}/me/adaccounts?fields=${fields}&access_token=${encodeURIComponent(accessToken)}`;
+    const baseFields = 'id,name,account_status,amount_spent,currency,timezone_name,business_name';
+    const fullFields = `${baseFields},business{id,name}`;
+    const url = `https://graph.facebook.com/${META_GRAPH_VERSION}/me/adaccounts?fields=${fullFields}&access_token=${encodeURIComponent(accessToken)}`;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), GRAPH_TIMEOUT_MS);
+    let accounts: any[] = [];
     try {
       const res = await fetch(url, { signal: ctrl.signal });
       const data = (await res.json().catch(() => ({}))) as any;
       if (!res.ok) {
-        throw new Error(data?.error?.message || 'ad account sync rejected by Meta');
+        const msg = data?.error?.message || '';
+        // business_management is a newer/optional grant: retry without the
+        // business object so accounts still sync for older tokens.
+        if (res.status === 400 && /business_management/i.test(msg)) {
+          logger.warn('Token lacks business_management; syncing accounts without owner business');
+          const retry = await fetch(
+            `https://graph.facebook.com/${META_GRAPH_VERSION}/me/adaccounts?fields=${baseFields}&access_token=${encodeURIComponent(accessToken)}`,
+            { signal: ctrl.signal },
+          );
+          const retryData = (await retry.json().catch(() => ({}))) as any;
+          if (!retry.ok) {
+            throw new Error(retryData?.error?.message || 'ad account sync rejected by Meta');
+          }
+          accounts = Array.isArray(retryData?.data) ? retryData.data : [];
+        } else {
+          throw new Error(data?.error?.message || 'ad account sync rejected by Meta');
+        }
+      } else {
+        accounts = Array.isArray(data?.data) ? data.data : [];
       }
-      const accounts = Array.isArray(data?.data) ? data.data : [];
       for (const ad of accounts) {
         const rawId = String(ad.id || '');
         const metaAdAccountId = rawId.startsWith('act_') ? rawId : `act_${rawId}`;

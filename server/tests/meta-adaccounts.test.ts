@@ -87,6 +87,30 @@ describe('meta ad accounts', () => {
     expect(res.status).toBe(400);
   });
 
+  test('token without business_management still syncs accounts (no owner data)', async () => {
+    (global as any).fetch = jest.fn(async (url: string) => {
+      const u = String(url);
+      if (u.includes('business{id,name}')) {
+        return { ok: false, status: 400, json: async () => ({ error: { message: 'Requires business_management permission', code: 100 } }) };
+      }
+      if (u.includes('/leadgen_forms') || u.includes('fields=primary_page')) {
+        return { ok: true, json: async () => ({ data: [] }) };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          data: [{ id: '555', name: 'No Biz Account', account_status: 1, amount_spent: '100', currency: 'USD', timezone_name: 'America/New_York' }],
+        }),
+      };
+    });
+    const res = await request(app).post('/api/meta/adaccounts/sync').set('Authorization', `Bearer ${tokenA}`).send({});
+    expect(res.status).toBe(200);
+    expect(res.body.data.synced).toBe(1);
+    const row = await MetaAdAccount.findOne({ metaAdAccountId: 'act_555' });
+    expect(row?.name).toBe('No Biz Account');
+    expect(row?.ownerBusinessId).toBeUndefined();
+  });
+
   test('sync discovers lead forms and primary page baseline', async () => {
     const { MetaLeadForm } = await import('../src/common/models/MetaLeadForm');
     const { MetaPage } = await import('../src/common/models/MetaPage');

@@ -20,6 +20,7 @@ const DEFAULT_SCOPES = [
   'pages_read_engagement',
   'pages_show_list',
   'whatsapp_business_messaging',
+  'business_management',
 ];
 
 function backendUrl(): string {
@@ -95,7 +96,11 @@ export class MetaOAuthController {
           `?client_id=${encodeURIComponent(appId)}&client_secret=${encodeURIComponent(appSecret)}` +
           `&redirect_uri=${encodeURIComponent(redirectUri)}&code=${encodeURIComponent(code)}`,
       );
-      if (!shortRes.ok || !shortRes.data.access_token) return fail('code_exchange_failed');
+      if (!shortRes.ok || !shortRes.data.access_token) {
+        const err = shortRes.data.error as { message?: string; code?: number } | undefined;
+        logger.error('Meta OAuth code exchange failed', { code: err?.code, message: err?.message });
+        return fail('code_exchange_failed');
+      }
 
       const longRes = await graphGet(
         `https://graph.facebook.com/${META_GRAPH_VERSION}/oauth/access_token` +
