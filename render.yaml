@@ -1,58 +1,99 @@
-# Render Blueprint — Lead CRM (backend API + frontend SPA)
-# Deploy: Render Dashboard → New → Blueprint → select this repo.
-# Then fill the placeholder env vars below in the dashboard.
+# render.yaml
+# Lead CRM — Backend API + React/Vite Frontend SPA
+
 services:
+
+  # ============================================================
+  # BACKEND API
+  # ============================================================
   - type: web
     name: leads-crm-api
     runtime: node
     rootDir: server
+
     buildCommand: npm install --legacy-peer-deps && npm run build
     startCommand: npm start
+
     healthCheckPath: /health
+
     autoDeploy: true
+
     envVars:
       - key: NODE_ENV
         value: production
+
       - key: DATABASE_URL
-        value: PASTE_MONGODB_ATLAS_URI_HERE
+        sync: false
+
       - key: REDIS_URL
-        value: PASTE_REDIS_URL_HERE
+        sync: false
+
       - key: JWT_SECRET
         generateValue: true
+
       - key: JWT_EXPIRES_IN
         value: 1d
+
       - key: FRONTEND_URL
         value: https://leads-ai-1.onrender.com
+
       - key: BACKEND_URL
         value: https://leads-ai-d4cx.onrender.com
+
+      # --------------------------------------------------------
+      # META
+      # --------------------------------------------------------
       - key: META_APP_ID
-        value: ''
+        sync: false
+
       - key: META_APP_SECRET
-        value: ''
+        sync: false
+
       - key: META_WEBHOOK_VERIFY_TOKEN
-        value: ''
+        sync: false
+
       - key: META_GRAPH_VERSION
         value: v25.0
+
       - key: META_TOKEN_KEY
         generateValue: true
-      - key: WHATSAPP_VERIFY_TOKEN
-        value: ''
-      - key: WHATSAPP_ACCESS_TOKEN
-        value: ''
-      - key: WHATSAPP_PHONE_NUMBER_ID
-        value: ''
 
+      # --------------------------------------------------------
+      # WHATSAPP
+      # --------------------------------------------------------
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+
+
+  # ============================================================
+  # FRONTEND — REACT / VITE SPA
+  # ============================================================
   - type: web
     name: leads-crm-web
     runtime: static
+
     rootDir: client
+
     buildCommand: npm install --legacy-peer-deps && npm run build
+
     staticPublishPath: ./dist
+
     autoDeploy: true
+
+    # IMPORTANT:
+    # React Router requires ALL unknown frontend paths
+    # to return index.html.
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
+
     envVars:
       - key: VITE_API_URL
         value: https://leads-ai-d4cx.onrender.com/api
