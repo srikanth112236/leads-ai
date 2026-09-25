@@ -6,6 +6,7 @@ export interface ICompanyDoc extends Document {
   status: 'active' | 'inactive' | 'suspended';
   contactEmail?: string;
   contactPhone?: string;
+  defaultBranchId?: string;
   address?: string;
   city?: string;
   country?: string;
@@ -21,6 +22,7 @@ const CompanySchema = new Schema<ICompanyDoc>({
   status: { type: String, enum: ['active', 'inactive', 'suspended'], default: 'active', index: true },
   contactEmail: { type: String, trim: true, lowercase: true },
   contactPhone: { type: String, trim: true },
+  defaultBranchId: { type: Schema.Types.ObjectId as any, ref: 'Branch' },
   address: { type: String, trim: true },
   city: { type: String, trim: true },
   country: { type: String, trim: true },

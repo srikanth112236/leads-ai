@@ -72,10 +72,19 @@ export class QueueService {
       }
       logger.info('Webhook job processed', { eventId: event._id, leadId: result.leadId, duplicate: result.isDuplicate });
     } catch (error: any) {
+      // Permanent Meta faults (expired token, #200 permissions) can never
+      // succeed on retry – fail fast instead of burning remaining attempts.
+      const permanent = error?.name === 'MetaPermanentError';
+      if (permanent) event.attempts = Math.max(event.attempts, event.maxAttempts);
       event.status = event.attempts >= event.maxAttempts ? 'failed' : 'pending';
       event.error = error.message;
       await event.save();
-      logger.error('Webhook job failed', { eventId: event._id, attempt: event.attempts, error: error.message });
+      logger.error('Webhook job failed', {
+        eventId: event._id,
+        attempt: event.attempts,
+        permanent,
+        error: error.message,
+      });
       throw error;
     }
   }

@@ -112,6 +112,72 @@ describe('meta oauth (§phase-19)', () => {
     expect(cross.status).toBe(403);
   });
 
+  test('start with explicit scopes includes them in dialogUrl and returns requestedScopes', async () => {
+    const res = await request(app)
+      .get('/api/meta/oauth/start?scopes=leads_retrieval,ads_read&auth_type=reauthenticate')
+      .set('Authorization', `Bearer ${tokenA}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.dialogUrl).toContain('scope=leads_retrieval%2Cads_read');
+    expect(res.body.data.dialogUrl).toContain('auth_type=reauthenticate');
+    expect(res.body.data.requestedScopes).toEqual(['leads_retrieval', 'ads_read']);
+  });
+
+  test('syncScopes revokes removed permissions directly without re-login', async () => {
+    const integration = await new MetaIntegration({
+      companyId: companyAId,
+      portfolioBusinessId: 'portfolio-test-2',
+      status: 'active',
+      scopes: ['leads_retrieval', 'ads_read', 'pages_manage_ads'],
+      metadata: { grantedScopes: ['leads_retrieval', 'ads_read', 'pages_manage_ads'] },
+      accessToken: 'plain-test-token',
+    }).save();
+
+    (global as any).fetch = jest.fn(async (url: string, init?: any) => {
+      if (init?.method === 'DELETE') {
+        return { ok: true, json: async () => ({ success: true }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const res = await request(app)
+      .post(`/api/meta/integrations/${integration._id}/sync-scopes`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ desiredScopes: ['leads_retrieval', 'ads_read'] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.needsOAuth).toBe(false);
+    expect(res.body.data.revoked).toContain('pages_manage_ads');
+    expect(res.body.data.scopes).not.toContain('pages_manage_ads');
+
+    const updated = await MetaIntegration.findById(integration._id);
+    expect(updated?.scopes).toEqual(['leads_retrieval', 'ads_read']);
+    expect(updated?.desiredScopes).toEqual(['leads_retrieval', 'ads_read']);
+  });
+
+  test('syncScopes returns OAuth dialogUrl when new scopes need authorization', async () => {
+    const integration = await MetaIntegration.findOne({ companyId: companyAId });
+    const res = await request(app)
+      .post(`/api/meta/integrations/${integration!._id}/sync-scopes`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ desiredScopes: ['leads_retrieval', 'ads_read', 'whatsapp_business_messaging'] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.needsOAuth).toBe(true);
+    expect(res.body.data.toAdd).toContain('whatsapp_business_messaging');
+    expect(res.body.data.dialogUrl).toContain('auth_type=rerequest');
+    expect(res.body.data.dialogUrl).toContain('whatsapp_business_messaging');
+  });
+
+  test('syncScopes is blocked cross-company', async () => {
+    const integration = await MetaIntegration.findOne({ companyId: companyAId });
+    const res = await request(app)
+      .post(`/api/meta/integrations/${integration!._id}/sync-scopes`)
+      .set('Authorization', `Bearer ${tokenB}`)
+      .send({ desiredScopes: ['leads_retrieval'] });
+
+    expect(res.status).toBe(403);
+  });
+
   test('disconnect clears the token', async () => {
     const res = await request(app).post('/api/meta/disconnect').set('Authorization', `Bearer ${tokenA}`).send({});
     expect(res.status).toBe(200);

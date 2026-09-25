@@ -11,7 +11,7 @@ export interface MappedMetaLead {
   meta: Record<string, unknown>;
 }
 
-const EMAIL_KEYS = ['email', 'email_address', 'e-mail'];
+const EMAIL_KEYS = ['email', 'email_address', 'e-mail', 'work_email', 'business_email', 'contact_email', 'corporate_email'];
 const PHONE_KEYS = ['phone_number', 'phone', 'mobile', 'mobile_number', 'phone_no'];
 const NAME_KEYS = ['full_name', 'name', 'contact_name'];
 const FIRST_KEYS = ['first_name', 'firstname', 'given_name'];
@@ -65,6 +65,11 @@ export function mapMetaLeadToIngest(lead: Record<string, unknown>): MappedMetaLe
     meta: {
       leadgenId: (lead as any).id,
       ad_id: (lead as any).ad_id,
+      ad_name: (lead as any).ad_name,
+      campaign_id: (lead as any).campaign_id,
+      campaign_name: (lead as any).campaign_name,
+      adset_id: (lead as any).adset_id,
+      adset_name: (lead as any).adset_name,
       form_id: (lead as any).form_id,
       created_time: (lead as any).created_time,
       customFields: extra,

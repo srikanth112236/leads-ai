@@ -10,6 +10,7 @@ router.post('/meta', webhookLimiter, WebhookController.handleMeta);
 router.get('/whatsapp', webhookLimiter, WebhookController.verifyWhatsApp);
 router.post('/whatsapp', webhookLimiter, WebhookController.handleWhatsApp);
 router.get('/trace', authenticateToken, WebhookController.getTrace);
+router.post('/:id/retry', authenticateToken, WebhookController.retryEvent);
 router.get('/:id', authenticateToken, WebhookController.getById);
 router.get('/', authenticateToken, WebhookController.getAll);
 

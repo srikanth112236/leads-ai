@@ -1,6 +1,6 @@
 # Final Acceptance (§43) — evidence run Sep 2026
 
-Verified live unless noted. Suite: `cd server && npx jest --runInBand --forceExit` → **19 suites, 91 tests, all pass**. Builds: `server tsc`, client `tsc && vite build` — all clean.
+Verified live unless noted. Suite: `cd server && npx jest --runInBand --forceExit` → **23 suites, 106 tests, all pass**. Builds: `server tsc`, client `tsc && vite build` — all clean.
 
 Post-acceptance hardening (same evidence bar): public registration locked to SALES_AGENT with no tenant; lead-source reads tenant-scoped; `GET /api/leads/export` route order fixed; full user CRUD (rank guards, self-edit protection, audit) + company create/edit/delete UI; branch per-record isolation + branch CRUD UI + company picker for superadmin user/branch creation; company onboarding (details + first admin + one-time credentials modal); platform-staff vs company-user split.
 

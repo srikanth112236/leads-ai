@@ -8,17 +8,31 @@ export function generateToken(payload: Record<string, unknown>): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN as any });
 }
 
-export function generateTokens(userId: string, role: Role, companyId?: string, branchId?: string, allowedBranchIds: string[] = []): { accessToken: string; refreshToken: string } {
+export function generateTokens(
+  userId: string,
+  role: Role | string,
+  companyId?: string,
+  branchId?: string,
+  allowedBranchIds: string[] = [],
+  permissions: string[] = [],
+  extraClaims: Record<string, unknown> = {},
+  sessionId?: string
+): { accessToken: string; refreshToken: string } {
   const accessPayload: Record<string, unknown> = {
     userId,
     role,
     companyId,
     branchId,
     allowedBranchIds,
-    isSuperAdmin: role === Role.SUPER_ADMIN,
+    permissions,
+    isSuperAdmin: role === Role.SUPER_ADMIN || role === 'SUPER_ADMIN',
+    ...extraClaims,
+    ...(sessionId ? { sid: sessionId } : {}),
   };
   const accessToken = jwt.sign(accessPayload, JWT_SECRET, { expiresIn: '15m' as any });
-  const refreshToken = jwt.sign({ userId, role }, JWT_SECRET, { expiresIn: '7d' as any });
+  const refreshPayload: Record<string, unknown> = { userId, role, ...extraClaims };
+  if (sessionId) refreshPayload.sid = sessionId;
+  const refreshToken = jwt.sign(refreshPayload, JWT_SECRET, { expiresIn: '7d' as any });
   return { accessToken, refreshToken };
 }
 

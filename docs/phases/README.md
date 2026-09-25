@@ -27,3 +27,4 @@ How to work a phase: implement → `typecheck` → `build` → fill the §44 rep
 | 17 | PHASE-17-ADMIN-UI-A.md | Companies/branches/integrations UI, role-gated nav | DONE (49/49 + client build) |
 | 18 | PHASE-18-ADMIN-UI-B-ACCEPTANCE.md | Webhook monitor, audit logs + full §43 acceptance run | DONE (53/53 + ACCEPTANCE.md) |
 | 19 | PHASE-19-META-OAUTH.md | Self-serve Meta OAuth (Company Admin connect) | DONE (74/74 full suite) |
+| 20 | PHASE-20-MULTI-PORTFOLIO.md (this file is the plan; implementation described below) | Multi-portfolio Meta + default branch | DONE |

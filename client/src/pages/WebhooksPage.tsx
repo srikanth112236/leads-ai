@@ -1,16 +1,23 @@
 import React, { useState } from 'react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
+import CustomSelect from '../components/common/CustomSelect';
 import { useGet } from '../hooks/useApi';
 import { useQuery } from '@tanstack/react-query';
+import { useCompanyScope } from '../context/CompanyScopeContext';
 import api from '../services/api';
 
 const WebhooksPage: React.FC = () => {
   const [provider, setProvider] = useState('');
   const [status, setStatus] = useState('');
   const [traceKey, setTraceKey] = useState<{ provider: string; externalEventId: string } | null>(null);
+  const { scopedCompanyId } = useCompanyScope();
 
-  const query = `/webhooks?${new URLSearchParams({ ...(provider ? { provider } : {}), ...(status ? { status } : {}) })}`;
+  const query = `/webhooks?${new URLSearchParams({
+    ...(provider ? { provider } : {}),
+    ...(status ? { status } : {}),
+    ...(scopedCompanyId ? { companyId: scopedCompanyId } : {}),
+  })}`;
   const { data, isLoading, refetch } = useGet(query);
   const events = (data as any)?.data || [];
 
@@ -28,25 +35,39 @@ const WebhooksPage: React.FC = () => {
   return (
     <div>
       <Card className="mb-4">
-        <div className="flex gap-3 items-end">
-          <label className="text-sm">Provider
-            <select value={provider} onChange={(e) => setProvider(e.target.value)} className="ml-2 px-2 py-1 border rounded">
-              <option value="">All</option>
-              <option value="meta">Meta</option>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="website">Website</option>
-            </select>
-          </label>
-          <label className="text-sm">Status
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className="ml-2 px-2 py-1 border rounded">
-              <option value="">All</option>
-              <option value="pending">Pending</option>
-              <option value="processing">Processing</option>
-              <option value="processed">Processed</option>
-              <option value="failed">Failed</option>
-            </select>
-          </label>
-          <Button variant="secondary" onClick={() => refetch()}>Refresh</Button>
+        <div className="flex gap-3 items-end flex-wrap">
+          <div className="w-44 [&>div]:mb-0">
+            <CustomSelect
+              label="Provider"
+              value={provider}
+              onChange={setProvider}
+              options={[
+                { value: '', label: 'All' },
+                { value: 'meta', label: 'Meta' },
+                { value: 'whatsapp', label: 'WhatsApp' },
+                { value: 'website', label: 'Website' },
+              ]}
+              compact
+            />
+          </div>
+          <div className="w-44 [&>div]:mb-0">
+            <CustomSelect
+              label="Status"
+              value={status}
+              onChange={setStatus}
+              options={[
+                { value: '', label: 'All' },
+                { value: 'pending', label: 'Pending' },
+                { value: 'processing', label: 'Processing' },
+                { value: 'processed', label: 'Processed' },
+                { value: 'failed', label: 'Failed' },
+              ]}
+              compact
+            />
+          </div>
+          <div className="pb-0.5">
+            <Button variant="secondary" size="sm" onClick={() => refetch()}>Refresh</Button>
+          </div>
         </div>
       </Card>
       <Card>

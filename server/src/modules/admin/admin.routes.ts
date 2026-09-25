@@ -16,6 +16,7 @@ router.get('/integrations', authenticateToken, requireRole(Role.SUPER_ADMIN), Ad
 router.get('/meta/status', authenticateToken, requireRole(Role.SUPER_ADMIN), AdminController.getMetaStatus);
 router.post('/meta/exchange', authenticateToken, requireRole(Role.SUPER_ADMIN), AdminController.exchangeMetaToken);
 router.get('/meta/health', authenticateToken, requireRole(Role.SUPER_ADMIN), AdminController.getMetaHealth);
+router.post('/meta/health/run', authenticateToken, requireRole(Role.SUPER_ADMIN), AdminController.runMetaHealthCheck);
 router.get('/meta/companies', authenticateToken, requireRole(Role.SUPER_ADMIN), AdminController.getMetaCompanies);
 router.post('/meta/test', authenticateToken, requireRole(Role.SUPER_ADMIN), AdminController.testMetaPlatform);
 router.post('/retention/run', authenticateToken, requireRole(Role.SUPER_ADMIN), AdminController.runRetention);

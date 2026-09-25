@@ -1,6 +1,6 @@
 import { Schema, model, Document } from 'mongoose';
 
-export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'converted' | 'lost' | 'dead';
+export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'proposal' | 'converted' | 'lost' | 'dead';
 export type LeadPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export interface ILeadDoc extends Document {
@@ -15,6 +15,7 @@ export interface ILeadDoc extends Document {
   priority: LeadPriority;
   score?: number;
   source?: string;
+  tags?: string[];
   assignedTo?: string;
   metadata?: Record<string, unknown>;
   normalizedPhone?: string;
@@ -34,10 +35,11 @@ const LeadSchema = new Schema<ILeadDoc>({
   phone: { type: String, trim: true, index: true },
   company: { type: String, trim: true },
   message: { type: String },
-  status: { type: String, enum: ['new', 'contacted', 'qualified', 'converted', 'lost', 'dead'], default: 'new', index: true },
+  status: { type: String, enum: ['new', 'contacted', 'qualified', 'proposal', 'converted', 'lost', 'dead'], default: 'new', index: true },
   priority: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
   score: { type: Number, default: 0 },
   source: { type: String, index: true },
+  tags: [{ type: String, trim: true }],
   assignedTo: { type: Schema.Types.ObjectId as any, ref: 'User' },
   metadata: { type: Schema.Types.Mixed, default: {} },
   normalizedPhone: { type: String, index: true },
@@ -54,6 +56,7 @@ LeadSchema.index({ companyId: 1, normalizedEmail: 1 });
 LeadSchema.index({ companyId: 1, status: 1, createdAt: -1 });
 LeadSchema.index({ companyId: 1, branchId: 1, createdAt: -1 });
 LeadSchema.index({ companyId: 1, source: 1 });
+LeadSchema.index({ companyId: 1, tags: 1 });
 LeadSchema.index({ externalIds: 1 });
 
 export const Lead = model<ILeadDoc>('Lead', LeadSchema);

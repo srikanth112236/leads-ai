@@ -1,5 +1,6 @@
 export { Company } from './Company';
 export { Branch } from './Branch';
+export { BranchCounter, nextBranchCode } from './BranchCounter';
 export { User } from './User';
 export { CompanyMembership } from './CompanyMembership';
 export { BranchMembership } from './BranchMembership';
@@ -18,5 +19,8 @@ export { MetaIntegration } from './MetaIntegration';
 export { MetaPage } from './MetaPage';
 export { MetaAdAccount } from './MetaAdAccount';
 export { MetaLeadForm } from './MetaLeadForm';
+export { MetaSyncSetting } from './MetaSyncSetting';
 export { WhatsAppIntegration } from './WhatsAppIntegration';
 export { WhatsAppPhoneNumber } from './WhatsAppPhoneNumber';
+export { MetaCampaign } from './MetaCampaign';
+export { RoleModel, IRoleDoc } from './RoleModel';

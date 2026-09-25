@@ -188,12 +188,22 @@ export class AdminController extends BaseController {
         todayProcessed,
         todayFailed,
       ] = await Promise.all([
-        MetaIntegration.find({}).select('companyId status tokenExpiresAt updatedAt').lean(),
+        MetaIntegration.find({}).select('companyId status tokenExpiresAt updatedAt metadata label portfolioBusinessId').lean(),
         WebhookEvent.countDocuments({ provider: { $in: ['meta', 'whatsapp'] }, receivedAt: { $gte: dayAgo } }),
         WebhookEvent.countDocuments({ provider: { $in: ['meta', 'whatsapp'] }, receivedAt: { $gte: dayAgo }, status: 'processed' }),
         WebhookEvent.countDocuments({ provider: { $in: ['meta', 'whatsapp'] }, receivedAt: { $gte: dayAgo }, status: 'failed' }),
       ]);
       const connectedCompanies = new Set(integrations.map((i: any) => i.companyId.toString())).size;
+      const unhealthy = integrations
+        .filter((i: any) => ['expired', 'failed'].includes(i.status))
+        .map((i: any) => ({
+          integrationId: i._id.toString(),
+          companyId: i.companyId.toString(),
+          label: i.label || i.portfolioBusinessId,
+          status: i.status,
+          lastHealthCheckAt: (i.metadata as any)?.lastHealthCheckAt || null,
+          lastHealthError: (i.metadata as any)?.lastHealthError || null,
+        }));
       res.json({
         success: true,
         data: {
@@ -202,6 +212,7 @@ export class AdminController extends BaseController {
             oauthCallbackUrl: `${backend}/api/meta/oauth/callback`,
             webhookUrl: `${backend}/api/webhooks/meta`,
             graphVersion: META_GRAPH_VERSION,
+            capiSupported: true,
           },
           customers: {
             connectedCompanies,
@@ -209,10 +220,26 @@ export class AdminController extends BaseController {
             failed: integrations.filter((i: any) => ['expired', 'failed'].includes(i.status)).length,
           },
           webhooks24h: { total: todayTotal, processed: todayProcessed, failed: todayFailed },
+          unhealthy,
         },
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message, code: 'HEALTH_ERROR' });
+    }
+  }
+
+  static async runMetaHealthCheck(req: Request, res: Response): Promise<void> {
+    try {
+      const { MetaHealthService } = await import('../meta/meta-health.service');
+      const summary = await MetaHealthService.runHealthCheck();
+      await recordAudit({
+        actorId: (req as any).user?.userId,
+        action: 'META_HEALTH_RUN',
+        metadata: { ...summary },
+      });
+      res.json({ success: true, data: summary });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message, code: 'HEALTH_RUN_ERROR' });
     }
   }
 

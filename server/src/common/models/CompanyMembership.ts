@@ -4,7 +4,7 @@ import { Role } from '../types';
 export interface ICompanyMembershipDoc extends Document {
   userId: string;
   companyId: string;
-  role: Role;
+  role: Role | string;
   branchIds: string[];
   isActive: boolean;
   createdAt: Date;
@@ -13,7 +13,7 @@ export interface ICompanyMembershipDoc extends Document {
 const CompanyMembershipSchema = new Schema<ICompanyMembershipDoc>({
   userId: { type: Schema.Types.ObjectId as any, ref: 'User', required: true, index: true },
   companyId: { type: Schema.Types.ObjectId as any, ref: 'Company', required: true, index: true },
-  role: { type: String, enum: Object.values(Role), required: true, index: true },
+  role: { type: String, required: true, index: true },
   branchIds: [{ type: Schema.Types.ObjectId as any, ref: 'Branch' }],
   isActive: { type: Boolean, default: true, index: true },
 }, {

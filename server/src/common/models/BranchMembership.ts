@@ -1,10 +1,13 @@
 import { Schema, model, Document } from 'mongoose';
 import { Role } from '../types';
 
+export type AccessLevel = 'full_manage' | 'view_only' | 'standard';
+
 export interface IBranchMembershipDoc extends Document {
   userId: string;
   branchId: string;
-  role: Role;
+  role: Role | string;
+  accessLevel: AccessLevel;
   isActive: boolean;
   createdAt: Date;
 }
@@ -12,7 +15,8 @@ export interface IBranchMembershipDoc extends Document {
 const BranchMembershipSchema = new Schema<IBranchMembershipDoc>({
   userId: { type: Schema.Types.ObjectId as any, ref: 'User', required: true, index: true },
   branchId: { type: Schema.Types.ObjectId as any, ref: 'Branch', required: true, index: true },
-  role: { type: String, enum: Object.values(Role), required: true, index: true },
+  role: { type: String, required: true, index: true },
+  accessLevel: { type: String, enum: ['full_manage', 'view_only', 'standard'], default: 'full_manage', index: true },
   isActive: { type: Boolean, default: true, index: true },
 }, {
   timestamps: true,

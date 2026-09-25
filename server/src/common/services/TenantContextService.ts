@@ -1,4 +1,4 @@
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, isPrivilegedRole } from '../middleware/auth';
 
 export class TenantContextService {
   static getContext(req: AuthRequest) {
@@ -17,35 +17,38 @@ export class TenantContextService {
 
   static getCompanyFilter(req: AuthRequest): Record<string, unknown> {
     const ctx = this.getContext(req);
-    if (ctx.isSuperAdmin) {
+    if (ctx.isSuperAdmin && !ctx.companyId) {
       return {};
     }
-    return { companyId: ctx.companyId };
+    return ctx.companyId ? { companyId: ctx.companyId } : {};
   }
 
   static getBranchFilter(req: AuthRequest): Record<string, unknown> {
     const ctx = this.getContext(req);
-    if (ctx.isSuperAdmin) {
+    if (ctx.isSuperAdmin && !ctx.branchId) {
       return {};
     }
     if (ctx.branchId) {
       return { branchId: ctx.branchId };
     }
-    if (ctx.allowedBranchIds.length > 0) {
+    if (ctx.allowedBranchIds.length > 0 && !isPrivilegedRole(ctx.role)) {
       return { branchId: { $in: ctx.allowedBranchIds } };
     }
-    return { companyId: ctx.companyId };
+    return ctx.companyId ? { companyId: ctx.companyId } : {};
   }
 
   static getTenantFilter(req: AuthRequest): Record<string, unknown> {
     const ctx = this.getContext(req);
-    if (ctx.isSuperAdmin) {
+    if (ctx.isSuperAdmin && !ctx.branchId) {
       return {};
     }
-    const filter: Record<string, unknown> = { companyId: ctx.companyId };
+    const filter: Record<string, unknown> = {};
+    if (ctx.companyId) {
+      filter.companyId = ctx.companyId;
+    }
     if (ctx.branchId) {
       filter.branchId = ctx.branchId;
-    } else if (ctx.allowedBranchIds.length > 0) {
+    } else if (ctx.allowedBranchIds.length > 0 && !isPrivilegedRole(ctx.role)) {
       filter.branchId = { $in: ctx.allowedBranchIds };
     }
     return filter;

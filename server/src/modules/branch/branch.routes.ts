@@ -1,18 +1,18 @@
 import { Router } from 'express';
 import { BranchController } from './branch.controller';
-import { authenticateToken, requireRole } from '../../common/middleware/auth';
+import { authenticateToken, requireAnyPermission } from '../../common/middleware/auth';
 import { enforceTenantIsolation } from '../../common/middleware/tenant';
-import { Role } from '../../common/types';
 
 const router = Router();
 
-router.get('/', authenticateToken, requireRole(Role.SUPER_ADMIN, Role.COMPANY_ADMIN), BranchController.getAll);
-router.get('/:id', authenticateToken, requireRole(Role.SUPER_ADMIN, Role.COMPANY_ADMIN), BranchController.getById);
-router.post('/', authenticateToken, requireRole(Role.SUPER_ADMIN, Role.COMPANY_ADMIN), BranchController.create);
-router.put('/:id', authenticateToken, requireRole(Role.SUPER_ADMIN, Role.COMPANY_ADMIN), enforceTenantIsolation, BranchController.update);
-router.delete('/:id', authenticateToken, requireRole(Role.SUPER_ADMIN, Role.COMPANY_ADMIN), BranchController.remove);
-router.get('/:id/users', authenticateToken, requireRole(Role.SUPER_ADMIN, Role.COMPANY_ADMIN), BranchController.getUsers);
-router.get('/:id/leads', authenticateToken, requireRole(Role.SUPER_ADMIN, Role.COMPANY_ADMIN, Role.BRANCH_MANAGER), BranchController.getLeads);
-router.get('/:id/stats', authenticateToken, requireRole(Role.SUPER_ADMIN, Role.COMPANY_ADMIN, Role.BRANCH_MANAGER), BranchController.getStats);
+router.get('/', authenticateToken, requireAnyPermission('branches:read'), BranchController.getAll);
+router.get('/:id', authenticateToken, requireAnyPermission('branches:read'), BranchController.getById);
+router.post('/', authenticateToken, requireAnyPermission('branches:create'), BranchController.create);
+router.put('/:id', authenticateToken, requireAnyPermission('branches:update'), enforceTenantIsolation, BranchController.update);
+router.delete('/:id', authenticateToken, requireAnyPermission('branches:delete'), BranchController.remove);
+router.get('/:id/users', authenticateToken, requireAnyPermission('branches:read', 'branches:team_manage', 'users:read'), BranchController.getUsers);
+router.post('/:id/users', authenticateToken, requireAnyPermission('branches:team_manage'), BranchController.addUsers);
+router.get('/:id/leads', authenticateToken, requireAnyPermission('branches:read', 'leads:read'), BranchController.getLeads);
+router.get('/:id/stats', authenticateToken, requireAnyPermission('branches:read'), BranchController.getStats);
 
 export { router as branchRoutes };

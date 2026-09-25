@@ -12,6 +12,8 @@ let metaQueue: Queue | null = null;
 let whatsappQueue: Queue | null = null;
 let processingQueue: Queue | null = null;
 let notificationQueue: Queue | null = null;
+let metaSyncQueue: Queue | null = null;
+let metaHealthQueue: Queue | null = null;
 
 export async function getMetaQueue(): Promise<Queue> {
   if (!metaQueue) {
@@ -39,6 +41,49 @@ export async function getNotificationQueue(): Promise<Queue> {
     notificationQueue = new Queue('notifications', { connection: queueConnection() });
   }
   return notificationQueue;
+}
+
+export async function getMetaSyncQueue(): Promise<Queue> {
+  if (!metaSyncQueue) {
+    metaSyncQueue = new Queue('meta-sync', { connection: queueConnection() });
+  }
+  return metaSyncQueue;
+}
+
+export function metaSyncSchedulerId(companyId: string): string {
+  return `meta-sync-${companyId}`;
+}
+
+export async function getMetaHealthQueue(): Promise<Queue> {
+  if (!metaHealthQueue) {
+    metaHealthQueue = new Queue('meta-health', { connection: queueConnection() });
+  }
+  return metaHealthQueue;
+}
+
+export const META_HEALTH_SCHEDULER_ID = 'meta-health-check';
+
+// Idempotent 6-hour token-validation loop (safe to call on every boot).
+export async function scheduleMetaHealthCheck(intervalMs = 6 * 60 * 60 * 1000): Promise<void> {
+  const queue = await getMetaHealthQueue();
+  await addWithTimeout(() =>
+    queue.upsertJobScheduler(META_HEALTH_SCHEDULER_ID, { every: intervalMs }, { data: {} }),
+  );
+}
+
+// (Re)schedules the per-company Meta pull. Upsert is idempotent: changing the
+// interval replaces the old schedule. Bounded by timeout so API responses never
+// hang when Redis is unreachable (the setting is still persisted in Mongo).
+export async function scheduleMetaSync(companyId: string, intervalMinutes: number): Promise<void> {
+  const queue = await getMetaSyncQueue();
+  await addWithTimeout(() =>
+    queue.upsertJobScheduler(metaSyncSchedulerId(companyId), { every: intervalMinutes * 60 * 1000 }, { data: { companyId } }),
+  );
+}
+
+export async function removeMetaSync(companyId: string): Promise<void> {
+  const queue = await getMetaSyncQueue();
+  await addWithTimeout(() => queue.removeJobScheduler(metaSyncSchedulerId(companyId)));
 }
 
 // Webhooks must return fast even if Redis is down: bound every enqueue with a
@@ -115,6 +160,43 @@ export async function startQueueWorkers(): Promise<void> {
     }, { connection: queueConnection() });
     notificationWorker.on('completed', (job) => logger.info('Notification job completed', { jobId: job?.id }));
     notificationWorker.on('failed', (job, err) => logger.error('Notification job failed', { jobId: job?.id, err: err.message }));
+
+    const syncWorker = new Worker('meta-sync', async (job) => {
+      const { MetaService } = await import('../meta/meta.service');
+      const { MetaSyncSetting } = await import('../../common/models/MetaSyncSetting');
+      const companyId = (job?.data as any)?.companyId as string;
+      try {
+        const result = await MetaService.syncAdAccounts(companyId);
+        await MetaSyncSetting.findOneAndUpdate(
+          { companyId },
+          { lastRunAt: new Date(), lastResult: `synced ${result.synced} accounts` },
+          { upsert: true },
+        );
+        logger.info('Meta scheduled sync complete', { companyId, ...result });
+      } catch (error: any) {
+        await MetaSyncSetting.findOneAndUpdate(
+          { companyId },
+          { lastRunAt: new Date(), lastResult: `failed: ${error.message}` },
+          { upsert: true },
+        );
+        logger.error('Meta scheduled sync failed', { companyId, error: error.message });
+        throw error;
+      }
+    }, { connection: queueConnection() });
+    syncWorker.on('failed', (job, err) => logger.error('Meta sync job failed', { jobId: job?.id, err: err.message }));
+
+    const healthWorker = new Worker('meta-health', async () => {
+      const { MetaHealthService } = await import('../meta/meta-health.service');
+      await MetaHealthService.runHealthCheck();
+    }, { connection: queueConnection() });
+    healthWorker.on('failed', (job, err) => logger.error('Meta health job failed', { jobId: job?.id, err: err.message }));
+
+    // Ensure the periodic token-validation loop is scheduled (idempotent).
+    try {
+      await scheduleMetaHealthCheck();
+    } catch (scheduleError: any) {
+      logger.warn('Meta health scheduler not armed (Redis unreachable?)', { error: scheduleError?.message });
+    }
 
     logger.info('Queue workers started');
   } catch (error) {

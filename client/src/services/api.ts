@@ -1,29 +1,9 @@
-import axios from 'axios';
-
-const api = axios.create({
-  // Production (Render split deploy): set VITE_API_URL to the backend URL.
-  // Local dev: falls back to '/api' via the Vite proxy.
-  baseURL: import.meta.env.VITE_API_URL || '/api',
-  headers: { 'Content-Type': 'application/json' },
-});
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
-    }
-    return Promise.reject(error);
-  }
-);
-
-export default api;
+/**
+ * Single shared API instance. All auth/session handling (token attach,
+ * branch header, single-flight refresh, session-expired events) lives in
+ * hooks/useApi.ts – this module only re-exports it so every page/supports
+ * file behaves identically. Do NOT add a second interceptor here: a stray
+ * 401 handler that hard-redirects would bypass the session-expiry modal.
+ */
+export { api as default } from '../hooks/useApi';
+export { api } from '../hooks/useApi';

@@ -11,6 +11,7 @@ import { Role } from '../src/common/types';
 describe('meta ad accounts', () => {
   let tokenA: string;
   let tokenB: string;
+  let integrationA: any;
 
   beforeAll(async () => {
     await connectTestDB();
@@ -18,9 +19,9 @@ describe('meta ad accounts', () => {
 
     const companyA = await new Company({ name: 'Ads A', status: 'active' }).save();
     const companyB = await new Company({ name: 'Ads B', status: 'active' }).save();
-    await new MetaIntegration({ companyId: companyA._id, accessToken: 'tok', status: 'active' }).save();
+    integrationA = await new MetaIntegration({ companyId: companyA._id, accessToken: 'tok', status: 'active', scopes: ['ads_read', 'leads_retrieval'] }).save();
     const { MetaPage: FixturePage } = await import('../src/common/models/MetaPage');
-    const fixtureIntegration = await MetaIntegration.findOne({ companyId: companyA._id });
+    const fixtureIntegration = integrationA;
     await new FixturePage({ metaPageId: 'page-70', companyId: companyA._id, integrationId: fixtureIntegration!._id, status: 'active' }).save();
     const password = await hashPassword('Test123!');
     await new User({ email: 'adsA@t.local', password, firstName: 'A', lastName: 'A', role: Role.COMPANY_ADMIN, companyId: companyA._id, isActive: true }).save();
@@ -142,5 +143,123 @@ describe('meta ad accounts', () => {
       .set('Authorization', `Bearer ${tokenB}`)
       .send({ branchId: ownBranch._id.toString() });
     expect(cross.status).toBe(403);
+  });
+
+  test('multi-integration sync handles partial missing permissions (#200) gracefully', async () => {
+    const { Company } = await import('../src/common/models/Company');
+    const companyA = await Company.findOne({ name: 'Ads A' });
+    // Add a second integration that will fail with #200 Missing Permissions
+    const intB = await new MetaIntegration({
+      companyId: companyA!._id,
+      accessToken: 'bad-perm-token',
+      portfolioBusinessId: 'biz-999',
+      label: 'Second Portfolio',
+      status: 'active',
+    }).save();
+
+    (global as any).fetch = jest.fn(async (url: string) => {
+      const u = String(url);
+      if (u.includes('bad-perm-token')) {
+        return {
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: { message: '(#200) Missing Permissions', type: 'OAuthException', code: 200 },
+          }),
+        };
+      }
+      if (u.includes('/leadgen_forms') || u.includes('fields=primary_page')) {
+        return { ok: true, json: async () => ({ data: [] }) };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          data: [{ id: '9911', name: 'First Portfolio Account', account_status: 1 }],
+        }),
+      };
+    });
+
+    const res = await request(app)
+      .post('/api/meta/adaccounts/sync')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.synced).toBeGreaterThanOrEqual(1);
+    expect(res.body.data.warnings).toBeDefined();
+    expect(res.body.data.warnings.length).toBeGreaterThan(0);
+
+    const updatedIntB = await MetaIntegration.findById(intB._id);
+    expect((updatedIntB?.metadata as any)?.actionRequired).toBe(true);
+    expect((updatedIntB?.metadata as any)?.lastSyncStatus).toBe('failed');
+  });
+
+  it('audits permissions live from Meta and updates integration scopes', async () => {
+    (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes('/me/permissions')) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: [
+              { permission: 'ads_read', status: 'granted' },
+              { permission: 'leads_retrieval', status: 'granted' },
+              { permission: 'whatsapp_business_messaging', status: 'declined' },
+            ],
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({ data: [] }) };
+    });
+
+    const res = await request(app)
+      .post('/api/meta/permissions/audit')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ integrationId: integrationA._id.toString() });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.grantedScopes).toEqual(['ads_read', 'leads_retrieval']);
+    expect(res.body.data.declinedScopes).toEqual(['whatsapp_business_messaging']);
+
+    const refreshed = await MetaIntegration.findById(integrationA._id);
+    expect(refreshed?.scopes).toEqual(['ads_read', 'leads_retrieval']);
+    expect((refreshed?.metadata as any)?.grantedScopes).toEqual(['ads_read', 'leads_retrieval']);
+    expect((refreshed?.metadata as any)?.declinedScopes).toEqual(['whatsapp_business_messaging']);
+  });
+
+  it('revokes an individual permission and isolates cross-tenant access', async () => {
+    // 1. Cross-tenant check: Company B cannot revoke Company A's permission
+    const forbiddenRes = await request(app)
+      .post('/api/meta/permissions/revoke')
+      .set('Authorization', `Bearer ${tokenB}`)
+      .send({ integrationId: integrationA._id.toString(), permission: 'ads_read' });
+
+    expect(forbiddenRes.status).toBe(403);
+
+    // 2. Company A successfully revokes permission
+    (global.fetch as jest.Mock).mockImplementation(async (url: string, opts?: any) => {
+      if (opts?.method === 'DELETE' && String(url).includes('/me/permissions/ads_read')) {
+        return {
+          ok: true,
+          json: async () => ({ success: true }),
+        };
+      }
+      return { ok: true, json: async () => ({ success: true }) };
+    });
+
+    const res = await request(app)
+      .post('/api/meta/permissions/revoke')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ integrationId: integrationA._id.toString(), permission: 'ads_read' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.scopes).not.toContain('ads_read');
+
+    const updated = await MetaIntegration.findById(integrationA._id);
+    expect(updated?.scopes).not.toContain('ads_read');
+    expect((updated?.metadata as any)?.grantedScopes).not.toContain('ads_read');
+    expect((updated?.metadata as any)?.declinedScopes).toContain('ads_read');
   });
 });

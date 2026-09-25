@@ -48,12 +48,24 @@ export class InboundLeadService {
         normalizedPhone
       );
 
+      const rawTags = (payload as any).tags;
+      const tags: string[] = Array.isArray(rawTags)
+        ? rawTags.map((t: unknown) => String(t).trim()).filter(Boolean)
+        : typeof rawTags === 'string' && rawTags.trim()
+        ? [rawTags.trim()]
+        : [];
+
       if (dedupResult.isDuplicate && dedupResult.leadId) {
         logger.info('Duplicate lead found during ingestion', {
           sourceType,
           companyId: resolvedCompanyId,
           existingLeadId: dedupResult.leadId,
         });
+        if (tags.length > 0) {
+          await Lead.findByIdAndUpdate(dedupResult.leadId, {
+            $addToSet: { tags: { $each: tags } },
+          });
+        }
         await this.createLeadSource(dedupResult.leadId, sourceType, externalId, payload);
         await this.createTrackerEvent(dedupResult.leadId, resolvedCompanyId, resolvedBranchId, sourceType, 'IMPORTED', payload);
         await this.createWebhookEvent(sourceType, externalId, payload, resolvedCompanyId, resolvedBranchId, dedupResult.leadId, true);
@@ -69,6 +81,7 @@ export class InboundLeadService {
         company: company as string,
         message: message as string,
         source: sourceType,
+        tags,
         normalizedPhone,
         normalizedEmail,
         externalIds: { [sourceType]: externalId || '' },

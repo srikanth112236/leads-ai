@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
+import Toggle from '../components/common/Toggle';
+import CustomSelect from '../components/common/CustomSelect';
+import ConfirmModal from '../components/common/ConfirmModal';
 import { useGet, usePost, usePut, useDelete } from '../hooks/useApi';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -94,13 +97,16 @@ const CompaniesPage: React.FC = () => {
             <Input label="Company name" value={form.name} onChange={(e) => set('name', e.target.value)} required />
             <Input label="Domain" value={form.domain} onChange={(e) => set('domain', e.target.value)} />
             <Input label="Website" value={form.website} onChange={(e) => set('website', e.target.value)} />
-            <label className="text-sm mb-3">Status
-              <select value={form.status} onChange={(e) => set('status', e.target.value)} className="ml-2 px-2 py-2 border rounded-lg">
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="suspended">Suspended</option>
-              </select>
-            </label>
+            <CustomSelect
+              label="Status"
+              value={form.status}
+              onChange={(val) => set('status', val)}
+              options={[
+                { value: 'active', label: 'Active', badge: 'Active', badgeColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
+                { value: 'inactive', label: 'Inactive', badge: 'Inactive', badgeColor: 'bg-slate-100 text-slate-500 border border-slate-200' },
+                { value: 'suspended', label: 'Suspended', badge: 'Suspended', badgeColor: 'bg-amber-50 text-amber-700 border border-amber-200' },
+              ]}
+            />
             <Input label="Contact email" type="email" value={form.contactEmail} onChange={(e) => set('contactEmail', e.target.value)} />
             <Input label="Contact phone" value={form.contactPhone} onChange={(e) => set('contactPhone', e.target.value)} />
             <Input label="Address" value={form.address} onChange={(e) => set('address', e.target.value)} />
@@ -109,10 +115,9 @@ const CompaniesPage: React.FC = () => {
           </div>
           {!editingId && (
             <>
-              <label className="flex items-center gap-2 text-sm font-semibold mt-3 mb-2">
-                <input type="checkbox" checked={withAdmin} onChange={(e) => setWithAdmin(e.target.checked)} />
-                Create first admin login for this company
-              </label>
+              <div className="mt-3 mb-2">
+                <Toggle checked={withAdmin} onChange={setWithAdmin} label="Create first admin login for this company" />
+              </div>
               {withAdmin && (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                   <Input label="Admin first name" value={admin.firstName} onChange={(e) => setAdmin({ ...admin, firstName: e.target.value })} required />
@@ -187,18 +192,38 @@ const CompaniesPage: React.FC = () => {
 };
 
 const DeleteButton: React.FC<{ id: string; onDone: () => void; onError: (m: string) => void }> = ({ id, onDone, onError }) => {
+  const [showConfirm, setShowConfirm] = useState(false);
   const del = useDelete(`/companies/${id}`);
+
+  const handleConfirm = () => {
+    setShowConfirm(false);
+    del.mutate(undefined, {
+      onSuccess: onDone,
+      onError: (err: any) => onError(err?.response?.data?.error || 'Delete failed'),
+    });
+  };
+
   return (
-    <Button
-      variant="danger"
-      loading={del.isPending}
-      onClick={() => {
-        if (!window.confirm('Delete this company? This cannot be undone.')) return;
-        del.mutate(undefined, { onSuccess: onDone, onError: (err: any) => onError(err?.response?.data?.error || 'Delete failed') });
-      }}
-    >
-      Delete
-    </Button>
+    <>
+      <Button
+        variant="danger"
+        size="sm"
+        loading={del.isPending}
+        onClick={() => setShowConfirm(true)}
+      >
+        Delete
+      </Button>
+      <ConfirmModal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={handleConfirm}
+        title="Delete Company"
+        message="Are you sure you want to delete this company? All associated data will be removed and this cannot be undone."
+        confirmText="Delete Company"
+        variant="danger"
+        loading={del.isPending}
+      />
+    </>
   );
 };
 

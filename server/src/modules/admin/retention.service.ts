@@ -1,6 +1,7 @@
 import { Lead } from '../../common/models/Lead';
 import { Message } from '../../common/models/Message';
 import { LeadNote } from '../../common/models/LeadNote';
+import { CampaignAccessService } from '../../common/services/CampaignAccessService';
 import { logger } from '../../common/utils/logger';
 
 // Meta developer policy for CRMs: keep lead PII no longer than necessary
@@ -14,6 +15,7 @@ export interface RetentionResult {
   leadsAnonymized: number;
   messagesAnonymized: number;
   notesAnonymized: number;
+  expiredGrantsPurged: number;
 }
 
 export class RetentionService {
@@ -25,8 +27,10 @@ export class RetentionService {
     }).select('_id').lean();
     const ids = stale.map((l) => l._id);
 
+    const expiredGrantsPurged = await CampaignAccessService.purgeExpired();
+
     if (ids.length === 0) {
-      return { cutoffDays, leadsAnonymized: 0, messagesAnonymized: 0, notesAnonymized: 0 };
+      return { cutoffDays, leadsAnonymized: 0, messagesAnonymized: 0, notesAnonymized: 0, expiredGrantsPurged };
     }
 
     const [leads, messages, notes] = await Promise.all([
@@ -40,12 +44,13 @@ export class RetentionService {
       Message.updateMany({ leadId: { $in: ids } }, { $set: { content: '[redacted]' } }),
       LeadNote.updateMany({ leadId: { $in: ids } }, { $set: { body: '[redacted]' } }),
     ]);
-    logger.info('Retention run complete', { cutoffDays, leads: leads.modifiedCount });
+    logger.info('Retention run complete', { cutoffDays, leads: leads.modifiedCount, expiredGrantsPurged });
     return {
       cutoffDays,
       leadsAnonymized: leads.modifiedCount,
       messagesAnonymized: messages.modifiedCount,
       notesAnonymized: notes.modifiedCount,
+      expiredGrantsPurged,
     };
   }
 }

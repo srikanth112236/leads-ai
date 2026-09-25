@@ -97,9 +97,10 @@ describe('retention + ad preview + purge', () => {
     expect((source?.metadata as any)?.adPreview).toBe('<iframe>ad</iframe>');
   });
 
-  test('retention anonymizes stale PII but spares active relationships', async () => {
-    const result = await RetentionService.run(90);
-    expect(result.leadsAnonymized).toBe(1);
+   test('retention anonymizes stale PII but spares active relationships', async () => {
+     const result = await RetentionService.run(90);
+     expect(result.leadsAnonymized).toBe(1);
+     expect(typeof result.expiredGrantsPurged).toBe('number');
 
     const stale = await Lead.findOne({ email: 'ollie@old.com' });
     expect(stale).toBeNull();
@@ -116,7 +117,8 @@ describe('retention + ad preview + purge', () => {
     expect(forbidden.status).toBe(403);
     const ok = await request(app).post('/api/admin/retention/run').set('Authorization', `Bearer ${tokenSuper}`).send({ days: 90 });
     expect(ok.status).toBe(200);
-    expect(ok.body.data.cutoffDays).toBe(90);
+     expect(ok.body.data.cutoffDays).toBe(90);
+     expect(ok.body.data).toHaveProperty('expiredGrantsPurged');
   });
 
   test('disconnect with purge deletes tenant Meta assets', async () => {

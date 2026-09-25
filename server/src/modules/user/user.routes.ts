@@ -1,16 +1,13 @@
 import { Router } from 'express';
 import { UserController } from './user.controller';
-import { authenticateToken, requireRole } from '../../common/middleware/auth';
-import { Role } from '../../common/types';
-
-const MANAGERS = [Role.SUPER_ADMIN, Role.COMPANY_ADMIN, Role.COMPANY_MANAGER, Role.BRANCH_MANAGER];
-const WRITERS = [Role.SUPER_ADMIN, Role.COMPANY_ADMIN, Role.COMPANY_MANAGER];
+import { authenticateToken, requireAnyPermission } from '../../common/middleware/auth';
 
 const router = Router();
 
-router.get('/', authenticateToken, requireRole(...MANAGERS), UserController.getAll);
-router.post('/', authenticateToken, requireRole(...WRITERS), UserController.create);
-router.put('/:id', authenticateToken, requireRole(...WRITERS), UserController.update);
-router.delete('/:id', authenticateToken, requireRole(...WRITERS), UserController.remove);
+router.get('/', authenticateToken, requireAnyPermission('users:read'), UserController.getAll);
+router.get('/:id', authenticateToken, requireAnyPermission('users:read'), UserController.getOne);
+router.post('/', authenticateToken, requireAnyPermission('users:create'), UserController.create);
+router.put('/:id', authenticateToken, requireAnyPermission('users:update'), UserController.update);
+router.delete('/:id', authenticateToken, requireAnyPermission('users:delete'), UserController.remove);
 
 export { router as userRoutes };

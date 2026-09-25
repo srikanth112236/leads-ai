@@ -1,6 +1,23 @@
 import { Response, NextFunction } from 'express';
-import { AuthRequest } from './auth';
+import { AuthRequest, isPrivilegedRole } from './auth';
 import { logger } from '../utils/logger';
+
+/**
+ * Whether the user may access data scoped to `branchId`.
+ * Privileged company roles (and super admins) may access every branch.
+ * Everyone else must hold the branch in their membership-derived allow-list.
+ */
+export function canAccessBranch(
+  user: AuthRequest['user'],
+  branchId: string | undefined | null,
+): boolean {
+  if (!user || !branchId) return false;
+  if (user.isSuperAdmin || isPrivilegedRole(user.role)) return true;
+  const allowed = user.allowedBranchIds || [];
+  if (allowed.includes(String(branchId))) return true;
+  if (user.branchId && String(user.branchId) === String(branchId)) return true;
+  return false;
+}
 
 export function enforceTenantIsolation(req: AuthRequest, res: Response, next: NextFunction): void {
   if (!req.user) {
@@ -43,7 +60,37 @@ export function enforceTenantIsolation(req: AuthRequest, res: Response, next: Ne
     return;
   }
 
-  if (bodyBranchId && bodyBranchId !== req.user.branchId && !req.user.isSuperAdmin) {
+  const queryBranchId = req.query.branchId as string | undefined;
+  const paramsBranchId = req.params.branchId as string | undefined;
+
+  if (
+    paramsBranchId &&
+    !req.user.isSuperAdmin &&
+    !isPrivilegedRole(req.user.role) &&
+    !canAccessBranch(req.user, paramsBranchId)
+  ) {
+    logger.warn('Tenant escape attempt via params branchId', {
+      userId: req.user.userId,
+      attemptedBranchId: paramsBranchId,
+      allowedBranchIds: req.user.allowedBranchIds,
+    });
+    res.status(403).json({ error: 'Cross-branch access denied', code: 'BRANCH_VIOLATION' });
+    return;
+  }
+
+  if (queryBranchId && queryBranchId !== req.user.branchId && !req.user.isSuperAdmin && !isPrivilegedRole(req.user.role)) {
+    if (!req.user.allowedBranchIds.includes(queryBranchId)) {
+      logger.warn('Tenant escape attempt via query branchId', {
+        userId: req.user.userId,
+        attemptedBranchId: queryBranchId,
+        allowedBranchIds: req.user.allowedBranchIds,
+      });
+      res.status(403).json({ error: 'Cross-branch access denied', code: 'BRANCH_VIOLATION' });
+      return;
+    }
+  }
+
+  if (bodyBranchId && bodyBranchId !== req.user.branchId && !req.user.isSuperAdmin && !isPrivilegedRole(req.user.role)) {
     if (!req.user.allowedBranchIds.includes(bodyBranchId)) {
       logger.warn('Tenant escape attempt via branchId', {
         userId: req.user.userId,

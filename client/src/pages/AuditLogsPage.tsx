@@ -1,9 +1,12 @@
 import React from 'react';
 import Card from '../components/common/Card';
 import { useGet } from '../hooks/useApi';
+import { useCompanyScope } from '../context/CompanyScopeContext';
 
 const AuditLogsPage: React.FC = () => {
-  const { data, isLoading } = useGet('/admin/audit-logs');
+  const { scopedCompanyId } = useCompanyScope();
+  const url = scopedCompanyId ? `/admin/audit-logs?companyId=${scopedCompanyId}` : '/admin/audit-logs';
+  const { data, isLoading } = useGet(url);
   const logs = (data as any)?.data || [];
 
   return (
